@@ -1,0 +1,302 @@
+---
+title: "Arsen - 04: Beta Diversity"
+author: "Jan Waelchli"
+geometry: margin=2cm
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE, echo=F, warning=F, message=F,}
+
+##clear the object from memory
+rm(list=ls())
+
+#knitr settings
+knitr::opts_chunk$set(echo=TRUE, fig.align="center")
+options(tinytex.verbose = TRUE)
+
+#set seed
+set.seed(100)
+
+## set source to file location
+library(rstudioapi)
+setwd(dirname(getActiveDocumentContext()$path))
+
+## load functions
+source("functions/functions.R")
+functions(path="functions/")
+
+## installs (if necessary) and loads libraries
+libraries()
+
+```
+
+```{r paths, echo=F, message=F, warning=F}
+
+# Import
+
+#set wd to RDS files
+setwd("interim/01_Import_Normalization")
+
+#Import RDS files
+bDESIGN <- readRDS("bDESIGN.RDS")
+bDAT_norm <- readRDS("bDAT_norm.RDS")
+
+fDESIGN <- readRDS("fDESIGN.RDS")
+fDAT_norm <- readRDS("fDAT_norm.RDS")
+
+level_cols_genotype <- readRDS("level_cols_genotype.RDS")
+level_cols_arsen <- readRDS("level_cols_arsen.RDS")
+
+bPHYSEQ <- readRDS("../02_Taxa_Analysis/bPHYSEQ.RDS")
+fPHYSEQ <- readRDS("../02_Taxa_Analysis/fPHYSEQ.RDS")
+
+#easier to write, from here on we only use the rarefied datasets
+bDAT <- bDAT_norm
+fDAT <- fDAT_norm
+
+```
+
+# Beta diversity
+
+We answered the following question for the bacterial and fungal beta diversity in each compartment:
+
+-   **Q1: Has arsen changed the beta diversity?**
+-   **Q2: Is beta diversity different between the genotypes?**
+-   **Q3: Are there differences in beta diversity between the different genotypes after treating plants with arsen?**
+
+
+## Method
+
+First we use the function 'adonis()' (package vegan) to analyze the beta diversity with a PERMANOVA (permutations = 999). Then, we graphically represent the beta diversity with a PCoA (unconstrained ordination) and a CAP plot (constrained ordination).
+
+\vspace{5mm}
+
+## Genotype*Arsen Effect
+
+We investigate the full model to see which factors alters the beta diversity.
+
+```{r PERMANOVA all, warning=F, echo=F, eval=T}
+
+#BACTERIA
+bdist <- vegan::vegdist(t(bDAT), method="bray")
+bdist_paov <- vegan::adonis2(bdist ~ (genotype + arsen)^2, data=bDESIGN)
+pander(bdist_paov, caption="Bacteria: PERMANOVA")
+
+#FUNGI
+fdist <- vegan::vegdist(t(fDAT), method="bray")
+fdist_paov <- vegan::adonis2(fdist ~ (genotype + arsen)^2, data=fDESIGN)
+pander(fdist_paov, caption="Fungi: PERMANOVA")
+
+```
+
+\pagebreak
+
+### Figure 6.1 \| PCoA - genotype:arsen effect on beta diversity
+
+\vspace{5mm}
+
+```{r functions PCoA, echo=F, warning=F, eval=T}
+
+#function to get centroid lines
+centroid_lines <- function(PHYSEQ, dist_matrix, group, axes=c(1,2)){
+  #get ordination values
+  lines <- as.data.frame(phyloseq::plot_ordination(PHYSEQ, dist_matrix, axes=axes, justDF=T))
+  colnames(lines)[1:2] <- c("Axis.1","Axis.2")
+  lines <- lines[,colnames(lines) %in% c("Axis.1","Axis.2",group)]#subset
+  #get centroids (means of each group)
+  means1 <- aggregate(lines$Axis.1, by=as.list(lines[,colnames(lines) %in% group, drop=F]), FUN=mean)
+  means2 <- aggregate(lines$Axis.2, by=as.list(lines[,colnames(lines) %in% group, drop=F]), FUN=mean)
+  #concat groups (for multiple groups)
+  lines$concact <- lines[,colnames(lines) %in% group,drop=F] %>% apply(2, as.character) %>% apply(1, paste, collapse="")
+  means1$concact <- means1[,colnames(means1) %in% group,drop=F] %>% apply(2, as.character) %>% apply(1, paste, collapse="")
+  means2$concact <- means2[,colnames(means2) %in% group,drop=F] %>% apply(2, as.character) %>% apply(1, paste, collapse="")
+  #add means to data.frame
+  lines$Axis.1.means <- NA
+  lines$Axis.2.means <- NA
+  group_values <- unique(lines$concact)
+  for (i in group_values) {
+    lines$Axis.1.means[lines$concact == i] <- means1$x[means1$concact == i]
+    lines$Axis.2.means[lines$concact == i] <- means2$x[means1$concact == i]
+  }
+  #subset df
+  lines <- lines[,colnames(lines) %in% c("Axis.1","Axis.2","Axis.1.means","Axis.2.means")]
+  #return
+  return(lines)
+}
+
+#scree plot
+#scree plot of the first 10 MDS
+scree_plot <- function(ordination, subset=1:10){
+  scree <- plot_scree(ordination)
+  df <- data.frame(x=scree$data$axis, y=scree$data$eigenvalue,label=paste0(round(scree$data$eigenvalue*100,2), "%"))
+  df$x <- factor(df$x, levels=unique(df$x))
+  scree <- ggplot(df[subset,], aes(x=x, y=y)) + 
+                geom_bar(stat="identity") + 
+                ylab("eigenvalue")+
+                xlab("component number")+
+                ylim(0,max(df$y)+0.1)+
+                theme_bw()+
+                geom_text(aes(label = label),vjust=-0.2, size=2)+
+                theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size=7))
+  #return
+  return(scree)
+}
+
+```
+
+```{r genotype arsen PCoA, echo=F, warning=F, eval=T, fig.height=9, fig.width=12}
+
+#BACTERIA
+bPCoA_bray <- phyloseq::ordinate(bPHYSEQ, method="PCoA", distance="bray")
+p0 <- phyloseq::plot_ordination(bPHYSEQ, bPCoA_bray, color= "genotype", shape="arsen", axes = c(2,3))
+blines <- centroid_lines(PHYSEQ = bPHYSEQ, dist_matrix = bPCoA_bray, group = c("genotype","arsen"), axes = c(2,3))
+p0 <- p0 + geom_segment(aes(xend=blines$Axis.1, yend=blines$Axis.2), x = blines$Axis.1.means, y = blines$Axis.2.means, alpha=0.3)
+p0 <- p0 + geom_point(size=3)
+#p0 <- p0 + geom_text(aes(label=bPHYSEQ@sam_data$bac_FLD))
+p0 <- p0 + scale_color_manual(values=level_cols_genotype)
+p0 <- p0 + theme_bw()
+p0 <- p0 + ggtitle("Bacteria - PCoA: Genotype:Arsen effect")
+fig_bac <- p0
+
+
+#FUNGI
+fPCoA_bray <- phyloseq::ordinate(fPHYSEQ, method="PCoA", distance="bray")
+p0 <- phyloseq::plot_ordination(fPHYSEQ, fPCoA_bray, color= "genotype", shape="arsen", axes = c(2,3))
+flines <- centroid_lines(PHYSEQ = fPHYSEQ, dist_matrix = fPCoA_bray, group = c("genotype","arsen"), axes = c(2,3))
+p0 <- p0 + geom_segment(aes(xend=flines$Axis.1, yend=flines$Axis.2), x = flines$Axis.1.means, y = flines$Axis.2.means, alpha=0.3)
+p0 <- p0 + geom_point(size=3)
+#p0 <- p0 + geom_text(aes(label=fPHYSEQ@sam_data$fun_FLD))
+p0 <- p0 + scale_color_manual(values=level_cols_genotype)
+p0 <- p0 + theme_bw()
+p0 <- p0 + ggtitle("Fungi - PCoA: Genotype:Arsen effect")
+fig_fun <- p0
+
+#combine the two plots (library cowplot)
+fig_PCoA <- cowplot::plot_grid(fig_bac + theme(legend.position="none"),
+               fig_fun + theme(legend.position="none") + labs(colour=""),
+               #labels=c("Bacteria","Fungi"),
+               align = "hv",
+               nrow=1)
+
+#add legend
+legend <- cowplot::get_legend(p0 + theme(legend.position="bottom") + labs(fill="Plastic"))
+fig_PCoA <- cowplot::plot_grid(fig_PCoA, legend, nrow=2, rel_heights=c(1, .1))
+
+
+
+
+#scree plot of the first 10 MDS
+scree_bac <- scree_plot(bPCoA_bray)
+scree_fun <- scree_plot(fPCoA_bray)
+fig_scree <- cowplot::plot_grid(scree_bac, scree_fun, align = "hv", nrow=1) #combine
+
+#PLOT
+#combine PCoA and scree plot
+fig_6.1 <- cowplot::plot_grid(fig_PCoA, fig_scree, align = "hv", nrow=2, rel_heights = c(9,3))
+
+#print
+#png("figures/fig6.1.png",12000, 9000, res = 600)
+fig_6.1
+#dev.off()
+
+```
+
+\vspace{5mm}
+
+### Figure 6.2 \| CAP - genotype:arsen effect on beta diversity
+
+\vspace{5mm}
+
+```{r CAP genotype arsen, echo=F, warning=F, eval=T, fig.height=9, fig.width=12}
+
+#BACTERIA
+bCAP_bray <- phyloseq::ordinate(bPHYSEQ, method="CAP", ~ genotype * arsen, distance="bray") #CAP
+CAP_bray_var_tbl <- variability_table(bCAP_bray) # extract variation details
+phylum.sum <- tapply(phyloseq::taxa_sums(bPHYSEQ), phyloseq::tax_table(bPHYSEQ)[, "labels"], sum, na.rm=T)
+topphyla <- names(sort(phylum.sum, T))[1:6]
+phy_sub <- prune_taxa((phyloseq::tax_table(bPHYSEQ)[, "labels"] %in% topphyla), bPHYSEQ)
+score <- paste("[ ~ genotype * arsen \n arsen: ",
+               format(bdist_paov$R2[rownames(bdist_paov)=="arsen"] * 100, digits=2, nsmall=1),
+               "% var, P=",format(bdist_paov$`Pr(>F)`[rownames(bdist_paov)=="arsen"], digits=2),"]",
+                "\n genotype: ",
+               format(bdist_paov$R2[rownames(bdist_paov)=="genotype"] * 100, digits=2, nsmall=1),
+               "% var, P=",format(bdist_paov$`Pr(>F)`[rownames(bdist_paov)=="genotype"], digits=2),"]",
+                "\n arsen:genotype: ",
+               format(bdist_paov$R2[rownames(bdist_paov)=="genotype:arsen"] * 100, digits=2, nsmall=1),
+               "% var, P=",format(bdist_paov$`Pr(>F)`[rownames(bdist_paov)=="genotype:arsen"], digits=2),"]", sep = "")
+#plot
+p0 <- phyloseq::plot_ordination(phy_sub, bCAP_bray, color="genotype", shape="arsen", title =  "Bacteria - CAP: Genotype:Arsen effect", axes=c(1,2))
+p0$layers <- p0$layers[-1]
+blines <- centroid_lines(phy_sub, bCAP_bray, c("genotype","arsen"), axes=c(1,2))
+p0 <- p0 + geom_segment(aes(xend=blines$Axis.1, yend=blines$Axis.2), x = blines$Axis.1.means, y = blines$Axis.2.means, alpha=0.3)
+p0 <- p0 + geom_point(size=3)
+#p0 <- p0 + geom_text(aes(label=bPHYSEQ@sam_data$bac_FLD))
+p0 <- p0 + scale_color_manual(values=level_cols_genotype)
+p0 <- p0 + labs(subtitle = score)
+p0 <- p0 + theme_bw()
+fig_bac <- p0
+
+
+#FUNGI
+fCAP_bray <- phyloseq::ordinate(fPHYSEQ, method="CAP", ~ genotype * arsen, distance="bray") #CAP
+CAP_bray_var_tbl <- variability_table(fCAP_bray) # extract variation details
+phylum.sum <- tapply(phyloseq::taxa_sums(fPHYSEQ), phyloseq::tax_table(fPHYSEQ)[, "labels"], sum, na.rm=T)
+topphyla <- names(sort(phylum.sum, T))[1:6]
+phy_sub <- prune_taxa((phyloseq::tax_table(fPHYSEQ)[, "labels"] %in% topphyla), fPHYSEQ)
+score <- paste("[ ~ genotype * arsen \n arsen: ",
+               format(fdist_paov$R2[rownames(fdist_paov)=="arsen"] * 100, digits=2, nsmall=1),
+               "% var, P=",format(fdist_paov$`Pr(>F)`[rownames(fdist_paov)=="arsen"], digits=2),"]",
+                "\n genotype: ",
+               format(fdist_paov$R2[rownames(fdist_paov)=="genotype"] * 100, digits=2, nsmall=1),
+               "% var, P=",format(fdist_paov$`Pr(>F)`[rownames(fdist_paov)=="genotype"], digits=2),"]",
+                "\n arsen:genotype: ",
+               format(fdist_paov$R2[rownames(fdist_paov)=="genotype:arsen"] * 100, digits=2, nsmall=1),
+               "% var, P=",format(fdist_paov$`Pr(>F)`[rownames(fdist_paov)=="genotype:arsen"], digits=2),"]", sep = "")
+#plot
+p0 <- phyloseq::plot_ordination(phy_sub, fCAP_bray, color="genotype", shape="arsen", title =  "Fungi - CAP: Genotype:Arsen effect", axes=c(1,2))
+p0$layers <- p0$layers[-1]
+flines <- centroid_lines(phy_sub, fCAP_bray, c("genotype","arsen"))
+p0 <- p0 + geom_segment(aes(xend=flines$Axis.1, yend=flines$Axis.2), x = flines$Axis.1.means, y = flines$Axis.2.means, alpha=0.3)
+p0 <- p0 + geom_point(size=3)
+#p0 <- p0 + geom_text(aes(label=fPHYSEQ@sam_data$fun_FLD))
+p0 <- p0 + scale_color_manual(values=level_cols_genotype)
+p0 <- p0 + labs(subtitle = score)
+p0 <- p0 + theme_bw()
+fig_fun <- p0
+
+#combine the two plots (library cowplot)
+fig_PCA <- cowplot::plot_grid(fig_bac + theme(legend.position="none"),
+               fig_fun + theme(legend.position="none") + labs(colour=""),
+               #labels=c("Bacteria","Fungi"),
+               align = "hv",
+               nrow=1)
+
+#add legend
+legend <- cowplot::get_legend(p0 + theme(legend.position="bottom") + labs(fill="Plastic"))
+fig_PCA <- cowplot::plot_grid(fig_PCA, legend, nrow=2, rel_heights=c(1, .1))
+
+
+#scree plot of the first 10 MDS
+scree_bac <- scree_plot(bCAP_bray)
+scree_fun <- scree_plot(fCAP_bray)
+fig_scree <- cowplot::plot_grid(scree_bac, scree_fun, align = "hv", nrow=1) #combine
+
+#PLOT
+#combine PCoA and scree plot
+fig_6.2 <- cowplot::plot_grid(fig_PCA, fig_scree, align = "hv", nrow=2, rel_heights = c(9,3))
+
+#print
+#png("figs_for_paper/fig6.2.png",12000, 9000, res = 600)
+fig_6.2
+#dev.off()
+
+```
+
+\vspace{5mm}
+
+**Conclusion:** There are differences in the bacterial and fungal communities due to the arsenic treatment, the genotypes and their interactions. We can explain about 4% of bacterial and 3% of fungal variety due to the arsen:genotype interaction effect.
+
+\pagebreak

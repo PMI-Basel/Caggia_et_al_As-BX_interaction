@@ -1,0 +1,527 @@
+---
+title: "Arsen - 05: Differential Abundance Analysis"
+author: "Jan Waelchli"
+geometry: margin=2cm
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+---
+   
+```{r setup, include=FALSE, echo=F, warning=F, message=F,}
+
+##clear the object from memory
+rm(list=ls())
+
+#knitr settings
+knitr::opts_chunk$set(echo=TRUE, fig.align="center")
+options(tinytex.verbose = TRUE)
+
+#set seed
+set.seed(100)
+
+## set source to file location
+library(rstudioapi)
+setwd(dirname(getActiveDocumentContext()$path))
+
+## load functions
+source("functions/functions.R")
+functions(path="functions/")
+
+## installs (if necessary) and loads libraries
+libraries()
+
+```
+
+```{r paths, echo=F, message=F, warning=F}
+
+# Import
+
+#set wd to RDS files
+setwd("interim/01_Import_Normalization")
+
+#Import RDS files
+bDESIGN <- readRDS("bDESIGN.RDS")
+bDAT <- readRDS("bDAT.RDS")
+bDAT_norm <- readRDS("bDAT_norm.RDS")
+bTAX <- readRDS("bTAX.RDS")
+
+fDESIGN <- readRDS("fDESIGN.RDS")
+fDAT <- readRDS("fDAT.RDS")
+fDAT_norm <- readRDS("fDAT_norm.RDS")
+fTAX <- readRDS("fTAX.RDS")
+
+level_cols_genotype <- readRDS("level_cols_genotype.RDS")
+level_cols_arsen <- readRDS("level_cols_arsen.RDS")
+
+bPHYSEQ_phyla_melt <- readRDS("../02_Taxa_Analysis/bPHYSEQ_phyla_melt.RDS")
+fPHYSEQ_phyla_melt <- readRDS("../02_Taxa_Analysis/fPHYSEQ_phyla_melt.RDS")
+
+```
+
+
+\pagebreak
+
+# Taxa Response
+
+Is there a core of sensitive microbial taxa? We searched sensitive ASVs – ASVs being differential abundant between WT and bx1. We answer the following question in non-arsenic and arsenic conditions:
+
+**Q1: Are there sensitive ASVs between control and WT and bx1 samples in non-arsenic and arsenic soil?**
+
+## Method
+
+We answered the question by using four different tools to measure differential abundances - aldex2, acombc, maaslin2 and metagenomeSeq - and predict ASVs to be different if they were detected by 2 or more tools.
+
+```{r prepro, echo=F, message=F, warning=F}
+
+preprocess <- function(DESIGN, DAT, sample_var){
+  
+  #preprocess (from ancom.R function file)
+  #out_cut: detect outlayers
+  #zero_cut: removes ASVs must be present in 90% of samples
+  prepro <- feature_table_pre_process(feature_table=DAT, meta_data=DESIGN, 
+                                       sample_var=sample_var, group_var=NULL, 
+                                       out_cut=0.5, zero_cut=0.9,
+                                       lib_cut=0, neg_lb=F)
+  #overwrite
+  feature_table <-  prepro$feature_table # Preprocessed feature table
+  meta_data <-  prepro$meta_data # Preprocessed metadata
+  return(list(feature_table, meta_data))
+}
+
+```
+
+## Genotype*Arsen Effect
+
+We check for each ASV if it is sensitive or not. Then, we show how many ASVs has been changed between the genotypes and how much of the relative abundance belongs to those sensitive ASVs.
+ 
+```{r compute DAA, echo=F, message=F, warning=F}
+
+#BACTERIA
+#CTRL
+bDESIGN_CTRL <- bDESIGN[bDESIGN$arsen=="CTRL",]
+bDAT_CTRL <- bDAT[,colnames(bDAT)%in%bDESIGN_CTRL$bac_FLD]
+bDAT_norm_CTRL <- bDAT_norm[,colnames(bDAT_norm)%in%bDESIGN_CTRL$bac_FLD]
+
+temp <- preprocess(bDESIGN_CTRL, bDAT_CTRL, "bac_FLD")
+feature_table <- temp[[1]]; meta_data <- temp[[2]]; rm(temp)
+#search differential abundance
+temp <- run_all_DAA(feature_table, meta_data, group = "genotype", DAT_sample_names =  "bac_FLD", reference = "genotype,WT")
+bsumm_CTRL <- temp[[1]]; rm(temp)
+bsens_ASVs_CTRL <- bsumm_CTRL$ASV[bsumm_CTRL$score>=2]
+
+#arsen
+bDESIGN_arsen <- bDESIGN[bDESIGN$arsen=="arsen",]
+bDAT_arsen <- bDAT[,colnames(bDAT)%in%bDESIGN_arsen$bac_FLD]
+bDAT_norm_arsen <- bDAT_norm[,colnames(bDAT_norm)%in%bDESIGN_arsen$bac_FLD]
+
+temp <- preprocess(bDESIGN_arsen, bDAT_arsen, "bac_FLD")
+feature_table <- temp[[1]]; meta_data <- temp[[2]]; rm(temp)
+#search differential abundance
+temp <- run_all_DAA(feature_table, meta_data, group = "genotype", DAT_sample_names =  "bac_FLD", reference = "genotype,bx1")
+bsumm_arsen <- temp[[1]]; rm(temp)
+bsens_ASVs_arsen <- bsumm_arsen$ASV[bsumm_arsen$score>=2]
+
+#FUNGI
+#CTRL
+fDESIGN_CTRL <- fDESIGN[fDESIGN$arsen=="CTRL",]
+fDAT_CTRL <- fDAT[,colnames(fDAT)%in%fDESIGN_CTRL$fun_FLD]
+fDAT_norm_CTRL <- fDAT_norm[,colnames(fDAT_norm)%in%fDESIGN_CTRL$fun_FLD]
+
+temp <- preprocess(fDESIGN_CTRL, fDAT_CTRL, "fun_FLD")
+feature_table <- temp[[1]]; meta_data <- temp[[2]]; rm(temp)
+#search differential abundance
+temp <- run_all_DAA(feature_table, meta_data, group = "genotype", DAT_sample_names =  "fun_FLD", reference = "genotype,WT")
+fsumm_CTRL <- temp[[1]]; rm(temp)
+fsens_ASVs_CTRL <- fsumm_CTRL$ASV[fsumm_CTRL$score>=2]
+
+#arsen
+fDESIGN_arsen <- fDESIGN[fDESIGN$arsen=="arsen",]
+fDAT_arsen <- fDAT[,colnames(fDAT)%in%fDESIGN_arsen$fun_FLD]
+fDAT_norm_arsen <- fDAT_norm[,colnames(fDAT_norm)%in%fDESIGN_arsen$fun_FLD]
+
+temp <- preprocess(fDESIGN_arsen, fDAT_arsen, "fun_FLD")
+feature_table <- temp[[1]]; meta_data <- temp[[2]]; rm(temp)
+#search differential abundance
+temp <- run_all_DAA(feature_table, meta_data, group = "genotype", DAT_sample_names =  "fun_FLD", reference = "genotype,bx1")
+fsumm_arsen <- temp[[1]]; rm(temp)
+fsens_ASVs_arsen <- fsumm_arsen$ASV[fsumm_arsen$score>=2]
+
+```
+
+
+```{r bac summarise DAA, echo=F, message=F, warning=F}
+
+#CTRL
+
+#relative abundance
+bDAT_norm_CTRL <- as.data.frame(bDAT_norm_CTRL)
+bDAT_norm_rel_CTRL <- (bDAT_norm_CTRL/colSums(bDAT_norm_CTRL)) * 100
+bDAT_norm_rel_CTRL <- as.data.frame(bDAT_norm_rel_CTRL[ rowSums(bDAT_norm_rel_CTRL) > 0,])
+
+#means & standard error
+means <- aggregate(t(bDAT_norm_rel_CTRL), list(bDESIGN_CTRL$genotype), mean) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+se <- aggregate(t(bDAT_norm_rel_CTRL), list(bDESIGN_CTRL$genotype), sjstats::se) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+#sort by abundance of CTRL samples
+order <- order(-means$WT)
+means <- means[order,]
+se <- se[order,]
+
+bsummary_CTRL <- tidyr::pivot_longer(means, !(ASV), names_to="genotype", values_to="means")
+bsummary_CTRL$se <- tidyr::pivot_longer(se, !(ASV), names_to="genotype", values_to="se") %>% dplyr::pull(se)
+bsummary_CTRL$genotype <- factor(bsummary_CTRL$genotype, levels=c("WT", "bx1"))
+bsummary_CTRL$ASV <- factor(bsummary_CTRL$ASV, levels=unique(bsummary_CTRL$ASV)) #keep the sorted order of ASVs
+
+#get score
+bsummary_CTRL$score <- 0
+  for(a in unique(bsummary_CTRL$ASV)){
+    score <- bsumm_CTRL %>% dplyr::filter(ASV == a) %>% dplyr::pull(score)
+    if(length(score)==1){bsummary_CTRL$score[(bsummary_CTRL$ASV==a)] <- score}
+  }
+
+#add if different abundant (score >= 2)
+bsummary_CTRL$sensitive <- ifelse(bsummary_CTRL$score >= 2, "sensitive", "not_sensitive")
+bsummary_CTRL$sensitive <- as.factor(bsummary_CTRL$sensitive)
+
+#add abundace in trt compared to ctrl
+bsummary_CTRL$abu_trt <- "unchanged"
+for(a in unique(bsummary_CTRL$ASV)){
+  mean_ctrl <- bsummary_CTRL$means[(bsummary_CTRL$ASV==a) & (bsummary_CTRL$genotype=="WT")]
+  mean_trt <- bsummary_CTRL$means[(bsummary_CTRL$ASV==a) & (bsummary_CTRL$genotype=="bx1")]
+  abu_sens <- bsummary_CTRL$sensitive[(bsummary_CTRL$ASV==a) & (bsummary_CTRL$genotype=="bx1")]
+  if(abu_sens == "sensitive"){
+    trt_dir <- ifelse(mean_ctrl > mean_trt, "higher in WT", "lower in WT")
+    bsummary_CTRL$abu_trt[(bsummary_CTRL$ASV==a)] <- trt_dir
+    }
+}
+
+#add phyla and class
+bsummary_CTRL$phylum <- NA
+bsummary_CTRL$class <- NA
+bsummary_CTRL$family <- NA
+for(a in unique(bsummary_CTRL$ASV)){
+  bsummary_CTRL$phylum[bsummary_CTRL$ASV == a] <- as.character(bTAX$phylum[bTAX$ASV_ID == a])
+  bsummary_CTRL$class[bsummary_CTRL$ASV == a] <- as.character(bTAX$class[bTAX$ASV_ID == a])
+  bsummary_CTRL$family[bsummary_CTRL$ASV == a] <- as.character(bTAX$family[bTAX$ASV_ID == a])
+}
+
+
+#arsen
+
+#relative abundance
+bDAT_norm_arsen <- as.data.frame(bDAT_norm_arsen)
+bDAT_norm_rel_arsen <- (bDAT_norm_arsen/colSums(bDAT_norm_arsen)) * 100
+bDAT_norm_rel_arsen <- as.data.frame(bDAT_norm_rel_arsen[ rowSums(bDAT_norm_rel_arsen) > 0,])
+
+#means & standard error
+means <- aggregate(t(bDAT_norm_rel_arsen), list(bDESIGN_arsen$genotype), mean) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+se <- aggregate(t(bDAT_norm_rel_arsen), list(bDESIGN_arsen$genotype), sjstats::se) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+#sort by abundance of arsen samples
+order <- order(-means$WT)
+means <- means[order,]
+se <- se[order,]
+
+bsummary_arsen <- tidyr::pivot_longer(means, !(ASV), names_to="genotype", values_to="means")
+bsummary_arsen$se <- tidyr::pivot_longer(se, !(ASV), names_to="genotype", values_to="se") %>% dplyr::pull(se)
+bsummary_arsen$genotype <- factor(bsummary_arsen$genotype, levels=c("WT", "bx1"))
+bsummary_arsen$ASV <- factor(bsummary_arsen$ASV, levels=unique(bsummary_arsen$ASV)) #keep the sorted order of ASVs
+
+#get score
+bsummary_arsen$score <- 0
+  for(a in unique(bsummary_arsen$ASV)){
+    score <- bsumm_arsen %>% dplyr::filter(ASV == a) %>% dplyr::pull(score)
+    if(length(score)==1){bsummary_arsen$score[(bsummary_arsen$ASV==a)] <- score}
+  }
+
+#add if different abundant (score >= 2)
+bsummary_arsen$sensitive <- ifelse(bsummary_arsen$score >= 2, "sensitive", "not_sensitive")
+bsummary_arsen$sensitive <- as.factor(bsummary_arsen$sensitive)
+
+#add abundace in trt compared to ctrl
+bsummary_arsen$abu_trt <- "unchanged"
+for(a in unique(bsummary_arsen$ASV)){
+  mean_ctrl <- bsummary_arsen$means[(bsummary_arsen$ASV==a) & (bsummary_arsen$genotype=="WT")]
+  mean_trt <- bsummary_arsen$means[(bsummary_arsen$ASV==a) & (bsummary_arsen$genotype=="bx1")]
+  abu_sens <- bsummary_arsen$sensitive[(bsummary_arsen$ASV==a) & (bsummary_arsen$genotype=="bx1")]
+  if(abu_sens == "sensitive"){
+    trt_dir <- ifelse(mean_ctrl > mean_trt, "higher in WT", "lower in WT")
+    bsummary_arsen$abu_trt[(bsummary_arsen$ASV==a)] <- trt_dir
+    }
+}
+
+#add phyla and class
+bsummary_arsen$phylum <- NA
+bsummary_arsen$class <- NA
+bsummary_arsen$family <- NA
+for(a in unique(bsummary_arsen$ASV)){
+  bsummary_arsen$phylum[bsummary_arsen$ASV == a] <- as.character(bTAX$phylum[bTAX$ASV_ID == a])
+  bsummary_arsen$class[bsummary_arsen$ASV == a] <- as.character(bTAX$class[bTAX$ASV_ID == a])
+  bsummary_arsen$family[bsummary_arsen$ASV == a] <- as.character(bTAX$family[bTAX$ASV_ID == a])
+}
+
+```
+
+```{r fun summarise DAA, echo=F, message=F, warning=F}
+
+#CTRL
+
+#relative abundance
+fDAT_norm_CTRL <- as.data.frame(fDAT_norm_CTRL)
+fDAT_norm_rel_CTRL <- (fDAT_norm_CTRL/colSums(fDAT_norm_CTRL)) * 100
+fDAT_norm_rel_CTRL <- as.data.frame(fDAT_norm_rel_CTRL[ rowSums(fDAT_norm_rel_CTRL) > 0,])
+
+#means & standard error
+means <- aggregate(t(fDAT_norm_rel_CTRL), list(fDESIGN_CTRL$genotype), mean) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+se <- aggregate(t(fDAT_norm_rel_CTRL), list(fDESIGN_CTRL$genotype), sjstats::se) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+#sort by abundance of CTRL samples
+order <- order(-means$WT)
+means <- means[order,]
+se <- se[order,]
+
+fsummary_CTRL <- tidyr::pivot_longer(means, !(ASV), names_to="genotype", values_to="means")
+fsummary_CTRL$se <- tidyr::pivot_longer(se, !(ASV), names_to="genotype", values_to="se") %>% dplyr::pull(se)
+fsummary_CTRL$genotype <- factor(fsummary_CTRL$genotype, levels=c("WT", "bx1"))
+fsummary_CTRL$ASV <- factor(fsummary_CTRL$ASV, levels=unique(fsummary_CTRL$ASV)) #keep the sorted order of ASVs
+
+#get score
+fsummary_CTRL$score <- 0
+  for(a in unique(fsummary_CTRL$ASV)){
+    score <- fsumm_CTRL %>% dplyr::filter(ASV == a) %>% dplyr::pull(score)
+    if(length(score)==1){fsummary_CTRL$score[(fsummary_CTRL$ASV==a)] <- score}
+  }
+
+#add if different abundant (score >= 2)
+fsummary_CTRL$sensitive <- ifelse(fsummary_CTRL$score >= 2, "sensitive", "not_sensitive")
+fsummary_CTRL$sensitive <- as.factor(fsummary_CTRL$sensitive)
+
+#add abundace in trt compared to ctrl
+fsummary_CTRL$abu_trt <- "unchanged"
+for(a in unique(fsummary_CTRL$ASV)){
+  mean_ctrl <- fsummary_CTRL$means[(fsummary_CTRL$ASV==a) & (fsummary_CTRL$genotype=="WT")]
+  mean_trt <- fsummary_CTRL$means[(fsummary_CTRL$ASV==a) & (fsummary_CTRL$genotype=="bx1")]
+  abu_sens <- fsummary_CTRL$sensitive[(fsummary_CTRL$ASV==a) & (fsummary_CTRL$genotype=="bx1")]
+  if(abu_sens == "sensitive"){
+    trt_dir <- ifelse(mean_ctrl > mean_trt, "higher in WT", "lower in WT")
+    fsummary_CTRL$abu_trt[(fsummary_CTRL$ASV==a)] <- trt_dir
+    }
+}
+
+#add phyla and class
+fsummary_CTRL$phylum <- NA
+fsummary_CTRL$class <- NA
+fsummary_CTRL$family <- NA
+for(a in unique(fsummary_CTRL$ASV)){
+  fsummary_CTRL$phylum[fsummary_CTRL$ASV == a] <- as.character(fTAX$phylum[fTAX$ASV_ID == a])
+  fsummary_CTRL$class[fsummary_CTRL$ASV == a] <- as.character(fTAX$class[fTAX$ASV_ID == a])
+  fsummary_CTRL$family[fsummary_CTRL$ASV == a] <- as.character(fTAX$family[fTAX$ASV_ID == a])
+}
+
+
+#arsen
+
+#relative abundance
+fDAT_norm_arsen <- as.data.frame(fDAT_norm_arsen)
+fDAT_norm_rel_arsen <- (fDAT_norm_arsen/colSums(fDAT_norm_arsen)) * 100
+fDAT_norm_rel_arsen <- as.data.frame(fDAT_norm_rel_arsen[ rowSums(fDAT_norm_rel_arsen) > 0,])
+
+#means & standard error
+means <- aggregate(t(fDAT_norm_rel_arsen), list(fDESIGN_arsen$genotype), mean) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+se <- aggregate(t(fDAT_norm_rel_arsen), list(fDESIGN_arsen$genotype), sjstats::se) %>%
+  tibble::column_to_rownames("Group.1") %>%
+  t() %>% as.data.frame() %>%
+  tibble::rownames_to_column("ASV")
+
+#sort by abundance of arsen samples
+order <- order(-means$WT)
+means <- means[order,]
+se <- se[order,]
+
+fsummary_arsen <- tidyr::pivot_longer(means, !(ASV), names_to="genotype", values_to="means")
+fsummary_arsen$se <- tidyr::pivot_longer(se, !(ASV), names_to="genotype", values_to="se") %>% dplyr::pull(se)
+fsummary_arsen$genotype <- factor(fsummary_arsen$genotype, levels=c("WT", "bx1"))
+fsummary_arsen$ASV <- factor(fsummary_arsen$ASV, levels=unique(fsummary_arsen$ASV)) #keep the sorted order of ASVs
+
+#get score
+fsummary_arsen$score <- 0
+  for(a in unique(fsummary_arsen$ASV)){
+    score <- fsumm_arsen %>% dplyr::filter(ASV == a) %>% dplyr::pull(score)
+    if(length(score)==1){fsummary_arsen$score[(fsummary_arsen$ASV==a)] <- score}
+  }
+
+#add if different abundant (score >= 2)
+fsummary_arsen$sensitive <- ifelse(fsummary_arsen$score >= 2, "sensitive", "not_sensitive")
+fsummary_arsen$sensitive <- as.factor(fsummary_arsen$sensitive)
+
+#add abundace in trt compared to ctrl
+fsummary_arsen$abu_trt <- "unchanged"
+for(a in unique(fsummary_arsen$ASV)){
+  mean_ctrl <- fsummary_arsen$means[(fsummary_arsen$ASV==a) & (fsummary_arsen$genotype=="WT")]
+  mean_trt <- fsummary_arsen$means[(fsummary_arsen$ASV==a) & (fsummary_arsen$genotype=="bx1")]
+  abu_sens <- fsummary_arsen$sensitive[(fsummary_arsen$ASV==a) & (fsummary_arsen$genotype=="bx1")]
+  if(abu_sens == "sensitive"){
+    trt_dir <- ifelse(mean_ctrl > mean_trt, "higher in WT", "lower in WT")
+    fsummary_arsen$abu_trt[(fsummary_arsen$ASV==a)] <- trt_dir
+    }
+}
+
+#add phyla and class
+fsummary_arsen$phylum <- NA
+fsummary_arsen$class <- NA
+fsummary_arsen$family <- NA
+for(a in unique(fsummary_arsen$ASV)){
+  fsummary_arsen$phylum[fsummary_arsen$ASV == a] <- as.character(fTAX$phylum[fTAX$ASV_ID == a])
+  fsummary_arsen$class[fsummary_arsen$ASV == a] <- as.character(fTAX$class[fTAX$ASV_ID == a])
+  fsummary_arsen$family[fsummary_arsen$ASV == a] <- as.character(fTAX$family[fTAX$ASV_ID == a])
+}
+
+```
+
+```{r bac show DAA, echo=F, message=F, warning=F}
+
+#pander how many ASVs are sensitive
+
+#BACTERIA
+#CTRL
+bchanged_abu_CTRL <- sum(bsummary_CTRL$means[bsummary_CTRL$sensitive=="sensitive" & bsummary_CTRL$genotype=="WT"])
+bchanged_abu_CTRL <- paste0(round(bchanged_abu_CTRL,2), "%")
+bsens_CTRL <- table(bsummary_CTRL$abu_trt[bsummary_CTRL$ASV %in% bsumm_CTRL$ASV & bsummary_CTRL$genotype=="bx1"])
+bsens_CTRL <- c(bsens_CTRL, "0"); names(bsens_CTRL)[2] <- "lower in WT" #add lower in WT=0
+bsens_CTRL <- c(bsens_CTRL, "0"); names(bsens_CTRL)[3] <- "higher in WT" #add higher in WT=0
+bsens_CTRL <- bsens_CTRL[c(2,1,3)]
+#pander(bsens_CTRL, caption="Bacteria CTRL (no arsen): genotype effect")
+
+#sensitive ASVs
+bsensitive_CTRL <- tidyr::pivot_wider(bsummary_CTRL,id_cols = !(c(se, score)), names_from = "genotype", values_from = c("means", "abu_trt", "sensitive"))
+bsensitive_CTRL <- bsensitive_CTRL[bsensitive_CTRL$sensitive_bx1 =="sensitive",] #sensitive
+bsensitive_CTRL <- bsensitive_CTRL[,colnames(bsensitive_CTRL) %in% c("ASV","means_WT","means_bx1", "phylum", "class")] #column to pander
+bsensitive_CTRL$means_WT <- paste0(round(bsensitive_CTRL$means_WT,3),"%")
+bsensitive_CTRL$means_bx1 <- paste0(round(bsensitive_CTRL$means_bx1,3),"%")
+colnames(bsensitive_CTRL)[4:5] <- c("abu WT", "abu bx1")
+#pander(bsensitive_CTRL, caption="Bacteria: sensitive ASVs in CTRL")
+
+#arsen
+bchanged_abu_arsen <- sum(bsummary_arsen$means[bsummary_arsen$sensitive=="sensitive" & bsummary_arsen$genotype=="WT"])
+bchanged_abu_arsen <- paste0(round(bchanged_abu_arsen,2), "%")
+bsens_arsen <- table(bsummary_arsen$abu_trt[bsummary_arsen$ASV %in% bsumm_arsen$ASV & bsummary_arsen$genotype=="bx1"])
+bsens_arsen <- c(bsens_arsen, "0"); names(bsens_arsen)[2] <- "lower in WT" #add lower in WT=0
+bsens_arsen <- c(bsens_arsen, "0"); names(bsens_arsen)[3] <- "higher in WT" #add higher in WT=0
+bsens_arsen <- bsens_arsen[c(2,1,3)]
+#pander(bsens_arsen, caption="Bacteria arsen: genotype effect")
+
+#sensitive ASVs
+bsensitive_arsen <- tidyr::pivot_wider(bsummary_arsen,id_cols = !(c(se, score)), names_from = "genotype", values_from = c("means", "abu_trt", "sensitive"))
+bsensitive_arsen <- bsensitive_arsen[bsensitive_arsen$sensitive_bx1 =="sensitive",] #sensitive
+bsensitive_arsen <- bsensitive_arsen[,colnames(bsensitive_arsen) %in% c("ASV","means_WT","means_bx1", "phylum", "class")] #column to pander
+bsensitive_arsen$means_WT <- paste0(round(bsensitive_arsen$means_WT,3),"%")
+bsensitive_arsen$means_bx1 <- paste0(round(bsensitive_arsen$means_bx1,3),"%")
+colnames(bsensitive_arsen)[4:5] <- c("abu WT", "abu bx1")
+#pander(bsensitive_arsen, caption="Bacteria: sensitive ASVs in arsen")
+
+#combine into one df
+bsens <- rbind(bsens_CTRL, bsens_arsen)
+bsens <- cbind(taxa=c("bacteria","bacteria"), arsen=c("CTRL","arsen"), bsens)
+rownames(bsens) <- NULL #remove rownames
+#add total abu
+abu_WT <- c(gsub("%", "", bsensitive_CTRL$`abu WT`) %>% as.numeric() %>% sum() %>% paste0("%"),
+              gsub("%", "", bsensitive_arsen$`abu WT`) %>% as.numeric() %>% sum() %>% paste0("%"))
+bsens <- cbind(bsens, `rel. abu. of sens. ASVs`=abu_WT)
+pander(bsens, caption = "Bacteria: genotype effect")
+
+#write_excel_csv(as.data.frame(bsens), "figs_for_paper/bacteria_sensitive.csv")
+
+```
+
+`r bchanged_abu_CTRL` in non-arsenic and `r bchanged_abu_arsen` in arsenic conditions of the bacterial community was changed in abundance due to genotype.
+
+\vspace{5mm}
+
+```{r fun show DAA, echo=F, message=F, warning=F}
+
+#pander how many ASVs are sensitive
+
+#FUNGI
+#CTRL
+fchanged_abu_CTRL <- sum(fsummary_CTRL$means[fsummary_CTRL$sensitive=="sensitive" & fsummary_CTRL$genotype=="WT"])
+fchanged_abu_CTRL <- paste0(round(fchanged_abu_CTRL,2), "%")
+fsens_CTRL <- table(fsummary_CTRL$abu_trt[fsummary_CTRL$ASV %in% fsumm_CTRL$ASV & fsummary_CTRL$genotype=="bx1"])
+fsens_CTRL <- c(fsens_CTRL, "0"); names(fsens_CTRL)[3] <- "lower in WT" #add lower in WT=0
+fsens_CTRL <- fsens_CTRL[c(3,2,1)]
+#pander(fsens_CTRL, caption="Fungi CTRL (no arsen): genotype effect")
+
+#sensitive ASVs
+fsensitive_CTRL <- tidyr::pivot_wider(fsummary_CTRL,id_cols = !(c(se, score)), names_from = "genotype", values_from = c("means", "abu_trt", "sensitive"))
+fsensitive_CTRL <- fsensitive_CTRL[fsensitive_CTRL$sensitive_bx1 =="sensitive",] #sensitive
+fsensitive_CTRL <- fsensitive_CTRL[,colnames(fsensitive_CTRL) %in% c("ASV","means_WT","means_bx1", "phylum", "class")] #column to pander
+fsensitive_CTRL$means_WT <- paste0(round(fsensitive_CTRL$means_WT,3),"%")
+fsensitive_CTRL$means_bx1 <- paste0(round(fsensitive_CTRL$means_bx1,3),"%")
+colnames(fsensitive_CTRL)[4:5] <- c("abu WT", "abu bx1")
+#pander(fsensitive_CTRL, caption="Fungi: sensitive ASVs in CTRL")
+
+#arsen
+fchanged_abu_arsen <- sum(fsummary_arsen$means[fsummary_arsen$sensitive=="sensitive" & fsummary_arsen$genotype=="WT"])
+fchanged_abu_arsen <- paste0(round(fchanged_abu_arsen,2), "%")
+fsens_arsen <- table(fsummary_arsen$abu_trt[fsummary_arsen$ASV %in% fsumm_arsen$ASV & fsummary_arsen$genotype=="bx1"])
+fsens_arsen <- c(fsens_arsen, "0"); names(fsens_arsen)[2] <- "lower in WT" #add lower in WT=0
+fsens_arsen <- c(fsens_arsen, "0"); names(fsens_arsen)[3] <- "higher in WT" #add higher in WT=0
+fsens_arsen <- fsens_arsen[c(2,1,3)]
+#pander(fsens_arsen, caption="Fungi arsen: genotype effect")
+
+#sensitive ASVs
+fsensitive_arsen <- tidyr::pivot_wider(fsummary_arsen,id_cols = !(c(se, score)), names_from = "genotype", values_from = c("means", "abu_trt", "sensitive"))
+fsensitive_arsen <- fsensitive_arsen[fsensitive_arsen$sensitive_bx1 =="sensitive",] #sensitive
+fsensitive_arsen <- fsensitive_arsen[,colnames(fsensitive_arsen) %in% c("ASV","means_WT","means_bx1", "phylum", "class")] #column to pander
+fsensitive_arsen$means_WT <- paste0(round(fsensitive_arsen$means_WT,3),"%")
+fsensitive_arsen$means_bx1 <- paste0(round(fsensitive_arsen$means_bx1,3),"%")
+colnames(fsensitive_arsen)[4:5] <- c("abu WT", "abu bx1")
+#pander(fsensitive_arsen, caption="Fungi: sensitive ASVs in arsen")
+
+#combine into one df
+fsens <- rbind(fsens_CTRL, fsens_arsen)
+fsens <- cbind(taxa=c("fungi","fungi"), arsen=c("CTRL","arsen"), fsens)
+rownames(fsens) <- NULL #remove rownames
+#add total abu
+abu_WT <- c(gsub("%", "", fsensitive_CTRL$`abu WT`) %>% as.numeric() %>% sum() %>% paste0("%"),
+              gsub("%", "", fsensitive_arsen$`abu WT`) %>% as.numeric() %>% sum() %>% paste0("%"))
+fsens <- cbind(fsens, `rel. abu. of sens. ASVs`=abu_WT)
+pander(fsens, caption = "Fungi: gneotype effect")
+
+#write_excel_csv(as.data.frame(fsens), "figs_for_paper/fungi_sensitive.csv")
+
+#remove automatically created DAA folder
+unlink("DAA example/", recursive = T)
+
+```
+
+`r fchanged_abu_CTRL` in non-arsenic and `r fchanged_abu_arsen` in arsenic conditions of the fungal community was changed in abundance due to genotype.
+
+**Conclusion:** Most ASVs are insensitive.
+
+\pagebreak

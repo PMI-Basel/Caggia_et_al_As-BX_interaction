@@ -1,0 +1,327 @@
+---
+title: "Arsen - 02: Taxanomy Analysis"
+author: "Jan Waelchli"
+geometry: margin=2cm
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE, echo=F, warning=F, message=F,}
+
+##clear the object from memory
+rm(list=ls())
+
+#knitr settings
+knitr::opts_chunk$set(echo=TRUE, fig.align="center")
+options(tinytex.verbose = TRUE)
+
+#set seed
+set.seed(100)
+
+## set source to file location
+library(rstudioapi)
+setwd(dirname(getActiveDocumentContext()$path))
+
+## load functions
+source("functions/functions.R")
+functions(path="functions/")
+
+## installs (if necessary) and loads libraries
+libraries()
+
+```
+
+```{r import, echo=F, message=F, warning=F}
+
+# Import
+
+# set wd to RDS files
+setwd("interim/01_Import_Normalization")
+
+#Import RDS files
+bDESIGN <- readRDS("bDESIGN.RDS")
+bTAX <- readRDS("bTAX.RDS")
+bDAT_norm <- readRDS("bDAT_norm.RDS")
+bTAX_level_cols_phyla <- readRDS("bTAX_level_cols_phyla.RDS")
+
+fDESIGN <- readRDS("fDESIGN.RDS")
+fTAX <- readRDS("fTAX.RDS")
+fDAT_norm <- readRDS("fDAT_norm.RDS")
+fTAX_level_cols_phyla <- readRDS("fTAX_level_cols_phyla.RDS")
+
+```
+
+```{r bac phyla, echo=F, warning=F, message=F}
+
+# Data as PHYLOSEQ object
+
+#change order for melting later
+bTAX <- bTAX[,c("labels", "kingdom", "phylum", "class", "order", "family", "genus", "ASV_ID", "cols_phyla")]
+
+#create phyloseq::phyloseq objects
+bDESIGN <- as.data.frame(bDESIGN)
+rownames(bDESIGN) <- bDESIGN$bac_FLD
+bDAT_norm <- as.matrix(bDAT_norm)
+bTAX <- as.matrix(bTAX[rownames(bDAT_norm),])
+bPHYSEQ <- phyloseq::phyloseq(sample_data(bDESIGN),
+                   otu_table(bDAT_norm, taxa_are_rows=T),
+                   tax_table(bTAX))
+
+# agglomerate data by labels 
+bPHYSEQ_phyla <- phyloseq::taxglom(bPHYSEQ, "labels") # merge by 'labels' 
+bPHYSEQ_phyla <- phyloseq::transform_sample_counts(bPHYSEQ_phyla, function(x) 100 * x/sum(x)) 
+
+# melt phyloseq::phyloseq object
+bPHYSEQ_phyla_melt <- phyloseq::psmelt(bPHYSEQ_phyla) 
+
+# Defining ASV colors by labels
+bPHYSEQ_phyla_melt$labels <- as.factor(bPHYSEQ_phyla_melt$labels)
+bPHYSEQ_phyla_melt$cols <- as.character(bPHYSEQ_phyla_melt$labels)
+
+# attributing previously assigned colors
+# TAX_level_cols_phyla
+for(i in names(bTAX_level_cols_phyla)[names(bTAX_level_cols_phyla) %in% levels(bPHYSEQ_phyla_melt$labels)]){
+  bPHYSEQ_phyla_melt[bPHYSEQ_phyla_melt$labels==paste(i), ]$cols <- bTAX_level_cols_phyla[paste(i)]
+}
+
+# Defining high abundant Phyla
+# Phyla with MEAN abundances higher than 1% relative abundances
+bPHYSEQ_phyla_abu <-  rownames(otu_table(bPHYSEQ_phyla))[apply(otu_table(bPHYSEQ_phyla), 1, mean, na.rm=T) > 1]
+bPHYSEQ_phyla_abuP <- tax_table(bPHYSEQ_phyla)[rownames(tax_table(bPHYSEQ_phyla)) %in% bPHYSEQ_phyla_abu, "labels"]
+
+# Defining low abundant Phyla
+# Phyla with MEAN abundances lower than 1% relative abundances
+bPHYSEQ_phyla_low <-  rownames(otu_table(bPHYSEQ_phyla))[apply(otu_table(bPHYSEQ_phyla), 1, mean, na.rm=T) < 1]
+bPHYSEQ_phyla_lowP <- tax_table(bPHYSEQ_phyla)[rownames(tax_table(bPHYSEQ_phyla)) %in% bPHYSEQ_phyla_low, "labels"]
+
+# subsetting the color vector to abundant labels and classes
+# delete labels name of low-abundant phyla (for plot) and put them at the bottom
+bPHYSEQ_phyla_melt$labels_2 <- as.character(bPHYSEQ_phyla_melt$labels)
+bPHYSEQ_phyla_melt[bPHYSEQ_phyla_melt$labels_2 %in% bPHYSEQ_phyla_lowP, ]$labels_2 <- "Low abundant phyla"
+bPHYSEQ_phyla_melt$labels_2 <- as.factor(bPHYSEQ_phyla_melt$labels_2)
+
+# color matrix for plot
+bcol_class <- bPHYSEQ_phyla_melt$cols
+names(bcol_class) <- bPHYSEQ_phyla_melt$labels_2
+bcol_class[names(bcol_class)=="Low abundant phyla"] <- "lightgrey"
+
+```
+
+```{r fun phyla, echo=F, warning=F, message=F}
+
+# Data as PHYLOSEQ object
+
+#change order for melting later
+fTAX <- fTAX[,c("labels", "kingdom", "phylum", "class", "order", "family", "genus", "species", "ASV_ID", "cols_phyla")]
+
+#create phyloseq::phyloseq objects
+fDESIGN <- as.data.frame(fDESIGN)
+rownames(fDESIGN) <- fDESIGN$fun_FLD
+fDAT_norm <- as.matrix(fDAT_norm)
+fTAX <- as.matrix(fTAX[rownames(fDAT_norm),])
+fPHYSEQ <- phyloseq::phyloseq(sample_data(fDESIGN),
+                   otu_table(fDAT_norm, taxa_are_rows=T),
+                   tax_table(fTAX))
+
+# agglomerate data by labels 
+fPHYSEQ_phyla <- phyloseq::taxglom(fPHYSEQ, "labels") # merge by 'labels' 
+fPHYSEQ_phyla <- phyloseq::transform_sample_counts(fPHYSEQ_phyla, function(x) 100 * x/sum(x)) 
+
+# melt phyloseq::phyloseq object
+fPHYSEQ_phyla_melt <- phyloseq::psmelt(fPHYSEQ_phyla) 
+
+# Defining ASV colors by labels
+fPHYSEQ_phyla_melt$labels <- as.factor(fPHYSEQ_phyla_melt$labels)
+fPHYSEQ_phyla_melt$cols <- as.character(fPHYSEQ_phyla_melt$labels)
+
+# attributing previously assigned colors
+# TAX_level_cols_phyla
+for(i in names(fTAX_level_cols_phyla)[names(fTAX_level_cols_phyla) %in% levels(fPHYSEQ_phyla_melt$labels)]){
+  fPHYSEQ_phyla_melt[fPHYSEQ_phyla_melt$labels==paste(i), ]$cols <- fTAX_level_cols_phyla[paste(i)]
+}
+
+# Defining high abundant Phyla
+# Phyla with MEAN abundances higher than 1% relative abundances
+fPHYSEQ_phyla_abu <-  rownames(otu_table(fPHYSEQ_phyla))[apply(otu_table(fPHYSEQ_phyla), 1, mean, na.rm=T) > 1]
+fPHYSEQ_phyla_abuP <- tax_table(fPHYSEQ_phyla)[rownames(tax_table(fPHYSEQ_phyla)) %in% fPHYSEQ_phyla_abu, "labels"]
+
+# Defining low abundant Phyla
+# Phyla with MEAN abundances lower than 1% relative abundances
+fPHYSEQ_phyla_low <-  rownames(otu_table(fPHYSEQ_phyla))[apply(otu_table(fPHYSEQ_phyla), 1, mean, na.rm=T) < 1]
+fPHYSEQ_phyla_lowP <- tax_table(fPHYSEQ_phyla)[rownames(tax_table(fPHYSEQ_phyla)) %in% fPHYSEQ_phyla_low, "labels"]
+
+# subsetting the color vector to abundant labels and classes
+# delete labels name of low-abundant phyla (for plot) and put them at the bottom
+fPHYSEQ_phyla_melt$labels_2 <- as.character(fPHYSEQ_phyla_melt$labels)
+fPHYSEQ_phyla_melt[fPHYSEQ_phyla_melt$labels_2 %in% fPHYSEQ_phyla_lowP, ]$labels_2 <- "Low abundant phyla"
+fPHYSEQ_phyla_melt$labels_2 <- as.factor(fPHYSEQ_phyla_melt$labels_2)
+
+# color matrix for plot
+fcol_class <- fPHYSEQ_phyla_melt$cols
+names(fcol_class) <- fPHYSEQ_phyla_melt$labels_2
+
+```
+
+# Taxonomy
+
+## Phyla abundance plot
+
+We get an overview over the abundance of bacterial taxonomy by showing the most abundant phyla for each sample.
+
+### Figure 4.1 | Bacteria: Phylum level taxonomy
+
+```{r bac fig, echo=F, warning=F, message=F, fig.height=13, fig.width=15}
+
+#sort
+bPHYSEQ_phyla_melt <- bPHYSEQ_phyla_melt[order(bPHYSEQ_phyla_melt$genotype),]
+bPHYSEQ_phyla_melt <- bPHYSEQ_phyla_melt[order(bPHYSEQ_phyla_melt$arsen),]
+
+#factor
+#unique has another order than levels()
+bPHYSEQ_phyla_melt$labels_2 <- factor(bPHYSEQ_phyla_melt$labels_2, levels = unique(bPHYSEQ_phyla_melt$labels_2)[1:14])#custom reordering
+
+#plot
+fig3.1 <- ggplot(bPHYSEQ_phyla_melt, aes_string(x="sample_ID", y="Abundance", fill="labels_2")) + 
+  geom_bar(stat="identity")+
+  xlab("") + 
+  ylab("Relative abundance [%]") +
+  scale_colour_manual(values=bcol_class)+
+  scale_fill_manual(values=bcol_class) +
+  guides(fill=guide_legend(title="Phylum"))+
+  facet_grid( ~ arsen, scale="free_x", space="free_x") +
+  geom_text(data=bPHYSEQ_phyla_melt, aes(label=genotype, y=-10), angle=90, check_overlap=T, size=3, hjust = 0.25) + 
+  theme_bw()+
+  ggtitle("Bacteria: Taxonomy")+
+  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
+
+#png("figs_for_paper/fig3.1.png",5000,4500, res=600)
+print(fig3.1)
+#dev.off()
+
+```
+
+\vspace{5mm}
+
+### Figure 4.2 | Fungi: Phylum level taxonomy
+
+```{r fun fig, echo=F, warning=F, message=F, fig.height=13, fig.width=15}
+
+#sort
+fPHYSEQ_phyla_melt <- fPHYSEQ_phyla_melt[order(fPHYSEQ_phyla_melt$genotype),]
+fPHYSEQ_phyla_melt <- fPHYSEQ_phyla_melt[order(fPHYSEQ_phyla_melt$arsen),]
+
+fcol_class[names(fcol_class)=="Low abundant phyla"] <- "lightgrey"
+
+#factor
+fPHYSEQ_phyla_melt$labels_2 <- factor(fPHYSEQ_phyla_melt$labels_2, levels = unique(fPHYSEQ_phyla_melt$labels_2)[c(1:9,11:12,10)])#custom reordering
+
+#plot
+fig3.2 <- ggplot(fPHYSEQ_phyla_melt, aes_string(x="sample_ID", y="Abundance", fill="labels_2")) + 
+  geom_bar(stat="identity")+
+  xlab("") + 
+  ylab("Relative abundance [%]") +
+  scale_colour_manual(values=fcol_class)+
+  scale_fill_manual(values=fcol_class) +
+  guides(fill=guide_legend(title="Phylum"))+
+  facet_grid( ~ arsen, scale="free_x", space="free_x") +
+  geom_text(data=fPHYSEQ_phyla_melt, aes(label=genotype, y=-10), angle=90, check_overlap=T, size=3, hjust = 0.25) + 
+  theme_bw()+
+  ggtitle("Fungi: Taxonomy")+
+  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
+
+#png("figs_for_paper/fig3.2.png",5000,4500, res=600)
+print(fig3.2)
+#dev.off()
+
+```
+
+\pagebreak
+
+## Effect of all factors on phyla abundances
+
+We test if there are any difference between the phyla abundances between genotypes, arsen-treatments or their interaction by performing a PERMNOVA (permutations = 999).
+
+### Bacteria
+
+```{r bac PERMANOVA, echo=F, warning=F, message=F}
+
+### BACTERIA
+
+#get phyla abu per sample
+bphyla_sum <- aggregate(x=bPHYSEQ_phyla_melt$Abundance, by=list(bPHYSEQ_phyla_melt$labels_2, bPHYSEQ_phyla_melt$Sample), FUN=sum) %>%
+  tidyr::pivot_wider(names_from = Group.2, values_from = x, ) %>%
+  as.data.frame()
+rownames(bphyla_sum) <- bphyla_sum$Group.1
+bphyla_sum <- bphyla_sum[,colnames(bphyla_sum) != "Group.1"]
+
+#should be 100% per sample
+#colSums(bphyla_sum)
+
+#PERMANOVA
+
+bdist <- vegan::vegdist(t(bphyla_sum), method="bray")
+bdist_paov <- vegan::adonis2(bdist ~ arsen*genotype, data=bDESIGN)
+pander(bdist_paov, caption="Bacteria: PERMANOVA")
+
+```
+
+### Fungi
+
+```{r fun PERMANOVA, echo=F, warning=F, message=F}
+
+### FUNGI
+
+#get phyla abu per sample
+fphyla_sum <- aggregate(x=fPHYSEQ_phyla_melt$Abundance, by=list(fPHYSEQ_phyla_melt$labels_2, fPHYSEQ_phyla_melt$Sample), FUN=sum) %>%
+  tidyr::pivot_wider(names_from = Group.2, values_from = x, ) %>%
+  as.data.frame()
+rownames(fphyla_sum) <- fphyla_sum$Group.1
+fphyla_sum <- fphyla_sum[,colnames(fphyla_sum) != "Group.1"]
+
+#should be 100% per sample
+#colSums(fphyla_sum)
+
+#PERMANOVA
+
+fdist <- vegan::vegdist(t(fphyla_sum), method="bray")
+fdist_paov <- vegan::adonis2(fdist ~ arsen*genotype, data=fDESIGN)
+pander(fdist_paov, caption="Fungi: PERMANOVA")
+
+#export for paper
+
+#combine tables
+df1 <- cbind(Taxa="Bacteria", Factor=rownames(bdist_paov), bdist_paov)
+df2 <- cbind(Taxa="Fungi", Factor=rownames(fdist_paov), fdist_paov)
+df_all <- rbind(df1, df2)
+rownames(df_all) <- NULL
+rm(df1, df2)
+
+#save
+#write.csv(df_all, "figs_for_paper/phyla_abundance.csv", row.names = F)
+
+
+```
+
+**Conclusion:** No differences found.
+
+\pagebreak
+
+```{r export RDA files, echo=F, message=F, warning=F}
+
+# create directory
+dir.create("interim")
+dir.create("interim/02_Taxa_Analysis")
+
+## set output directory
+setwd("interim/02_Taxa_Analysis")
+
+#save objects needed in the following scripts as RDA
+saveRDS(bPHYSEQ, "bPHYSEQ.RDS")
+saveRDS(bPHYSEQ_phyla_melt, "bPHYSEQ_phyla_melt.RDS")
+saveRDS(fPHYSEQ, "fPHYSEQ.RDS")
+saveRDS(fPHYSEQ_phyla_melt, "fPHYSEQ_phyla_melt.RDS")
+
+```
+

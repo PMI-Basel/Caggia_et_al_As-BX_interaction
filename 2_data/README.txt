@@ -1,0 +1,1 @@
+Place your data here. The runs must be named runBE12_r1.fastq.gz and runBE12_r2.fastq.gz The file files.txt contains all files we used.
