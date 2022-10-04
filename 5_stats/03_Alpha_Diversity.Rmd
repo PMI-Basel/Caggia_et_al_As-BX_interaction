@@ -1,5 +1,5 @@
 ---
-title: "Arsen - 03: Alpha Diversity"
+title: "Arsenic - 03: Alpha Diversity"
 author: "Jan Waelchli"
 geometry: margin=2cm
 output:
@@ -58,9 +58,9 @@ level_cols_genotype <- readRDS("level_cols_genotype.RDS")
 
 We answer the following questions for the alpha diversity in each substrate:
 
--   **Q1: Has arsen changed the beta diversity?**
+-   **Q1: Has arsenic changed the beta diversity?**
 -   **Q2: Is beta diversity different between the genotypes?**
--   **Q3: Are there differences in beta diversity between the different genotypes after treating plants with arsen?**
+-   **Q3: Are there differences in beta diversity between the different genotypes after treating plants with arsenic?**
 
 ```{r a-div shannon, warning=F, echo=F, message=F, eval=T}
 
@@ -80,18 +80,18 @@ rm(asv_diversity)
 
 We calculate the Shannon diversity for each sample with the normalized data. 
 
-## Genotype*Arsen Effect
+## Genotype*Arsenic Effect
 
-We investigate the effect on alpha diversity by the factors of genotype, arsen and the interaction between them. We model the alpha diversity against these factors in an aov-model and perform a F-Test.
+We investigate the effect on alpha diversity by the factors of genotype, arsenic and the interaction between them. We model the alpha diversity against these factors in an aov-model and perform a F-Test.
 
 ```{r a-div overview, warning=F, echo=F, message=F, eval=T}
 
 #BACTERIA
-balpha_aov <- aov(asv_diversity ~ (genotype + arsen)^2, data=alpha_diversity_bDAT_summary) #^2 two way interactions
+balpha_aov <- aov(asv_diversity ~ (genotype + arsenic)^2, data=alpha_diversity_bDAT_summary) #^2 two way interactions
 pander(summary(balpha_aov), caption = "Bacteria: F test")
 
 #FUNGI
-falpha_aov <- aov(asv_diversity ~ (genotype + arsen)^2, data=alpha_diversity_fDAT_summary)
+falpha_aov <- aov(asv_diversity ~ (genotype + arsenic)^2, data=alpha_diversity_fDAT_summary)
 pander(summary(falpha_aov), caption = "Fungi: F test")
 
 #export for paper
@@ -108,35 +108,35 @@ rm(df1, df2)
 
 ```
 
-```{r a-div Arsen, warning=F, echo=F, message=F, eval=T}
+```{r a-div Arsenic, warning=F, echo=F, message=F, eval=T}
 
 #BACTERIA
-balpha_aov_tukey <- emmeans::emmeans(balpha_aov, c("genotype", "arsen"))
+balpha_aov_tukey <- emmeans::emmeans(balpha_aov, c("genotype", "arsenic"))
 balpha_aov_tukey_letters <- multcomp::cld(balpha_aov_tukey, Letter="abcdefghi", alpha=0.05)
 # means
-balpha_means <- aggregate(alpha_diversity_bDAT_summary$asv_diversity,list(alpha_diversity_bDAT_summary$genotype, alpha_diversity_bDAT_summary$arsen), mean)
+balpha_means <- aggregate(alpha_diversity_bDAT_summary$asv_diversity,list(alpha_diversity_bDAT_summary$genotype, alpha_diversity_bDAT_summary$arsenic), mean)
 # table
 balpha_aov_tukey_letters <-balpha_aov_tukey_letters[order(with(balpha_aov_tukey_letters, genotype)),]
-balpha_aov_tukey_letters <-balpha_aov_tukey_letters[order(with(balpha_aov_tukey_letters, arsen)),]
+balpha_aov_tukey_letters <-balpha_aov_tukey_letters[order(with(balpha_aov_tukey_letters, arsenic)),]
 balpha_means <- balpha_means[order(with(balpha_means, Group.1, Group.2)),]
-balpha_table <- data.frame(genotype=balpha_means[,1], arsen=balpha_means[,2], Shanon=balpha_means[,3], letters=balpha_aov_tukey_letters[,8])
+balpha_table <- data.frame(genotype=balpha_means[,1], arsenic=balpha_means[,2], Shanon=balpha_means[,3], letters=balpha_aov_tukey_letters[,8])
 #pander(balpha_table, caption = "Bacteria: alpha diversity")
 
 #FUNGI
-falpha_aov_tukey <- emmeans::emmeans(falpha_aov, c("genotype", "arsen"))
+falpha_aov_tukey <- emmeans::emmeans(falpha_aov, c("genotype", "arsenic"))
 falpha_aov_tukey_letters <- multcomp::cld(falpha_aov_tukey, Letter="abcdefghi", alpha=0.05)
 # means
-falpha_means <- aggregate(alpha_diversity_fDAT_summary$asv_diversity,list(alpha_diversity_fDAT_summary$genotype, alpha_diversity_fDAT_summary$arsen), mean)
+falpha_means <- aggregate(alpha_diversity_fDAT_summary$asv_diversity,list(alpha_diversity_fDAT_summary$genotype, alpha_diversity_fDAT_summary$arsenic), mean)
 # table
 falpha_aov_tukey_letters <-falpha_aov_tukey_letters[order(with(falpha_aov_tukey_letters, genotype)),]
-falpha_aov_tukey_letters <-falpha_aov_tukey_letters[order(with(falpha_aov_tukey_letters, arsen)),]
+falpha_aov_tukey_letters <-falpha_aov_tukey_letters[order(with(falpha_aov_tukey_letters, arsenic)),]
 falpha_means <- falpha_means[order(with(falpha_means, Group.1, Group.2)),]
-falpha_table <- data.frame(genotype=falpha_means[,1], arsen=falpha_means[,2], Shanon=falpha_means[,3], letters=falpha_aov_tukey_letters[,8])
+falpha_table <- data.frame(genotype=falpha_means[,1], arsenic=falpha_means[,2], Shanon=falpha_means[,3], letters=falpha_aov_tukey_letters[,8])
 #pander(falpha_table, caption = "Fungi: alpha diversity")
 
 ```
 
-### Figure 5 \| Genotype*Arsen effect on alpha diversity
+### Figure 5 \| Genotype*Arsenic effect on alpha diversity
 
 \vspace{5mm}
 
@@ -150,16 +150,16 @@ alpha_diversity_DAT_summary <- rbind(alpha_diversity_bDAT_summary, alpha_diversi
 #data frame for letters
 alpha_table <- rbind(balpha_table, falpha_table)
 alpha_table$taxa <- rep(c("Bacteria", "Fungi"), each=4)
-alpha_table <- alpha_table[order(alpha_table$taxa, alpha_table$arsen),] #make sure to have the same order as plot!
+alpha_table <- alpha_table[order(alpha_table$taxa, alpha_table$arsenic),] #make sure to have the same order as plot!
 alpha_table$taxa <- factor(alpha_table$taxa, levels=c("Bacteria", "Fungi"))
 alpha_table$letters <- trimws(alpha_table$letters) #remove whitespaces
 alpha_table$x <- rep(c(0.8,1.2,1.8,2.2), 2)
 alpha_table$y <- c(
-tapply(alpha_diversity_bDAT_summary$asv_diversity, list(alpha_diversity_bDAT_summary$genotype, alpha_diversity_bDAT_summary$arsen), max)+0.1,
-tapply(alpha_diversity_fDAT_summary$asv_diversity, list(alpha_diversity_fDAT_summary$genotype, alpha_diversity_fDAT_summary$arsen), max)+0.1)
+tapply(alpha_diversity_bDAT_summary$asv_diversity, list(alpha_diversity_bDAT_summary$genotype, alpha_diversity_bDAT_summary$arsenic), max)+0.1,
+tapply(alpha_diversity_fDAT_summary$asv_diversity, list(alpha_diversity_fDAT_summary$genotype, alpha_diversity_fDAT_summary$arsenic), max)+0.1)
 
 #plot
-plot <- ggplot(alpha_diversity_DAT_summary, aes(y=asv_diversity, x=arsen, fill=genotype)) +
+plot <- ggplot(alpha_diversity_DAT_summary, aes(y=asv_diversity, x=arsenic, fill=genotype)) +
             geom_boxplot(position=position_dodge2(width=0.75, preserve="single"),outlier.colour = NA) +
             geom_jitter(size=1, position=position_jitterdodge(jitter.width=0.3,dodge.width = 0.75), alpha=0.3, aes(col=genotype))+
             theme_bw() +
@@ -170,7 +170,7 @@ plot <- ggplot(alpha_diversity_DAT_summary, aes(y=asv_diversity, x=arsen, fill=g
             scale_color_manual(values=c("black","dimgrey","grey")) +
             facet_grid(~ taxa, scales = "free", space = "free")+
             theme(axis.text.x = element_text(angle = 0, vjust = 0.5, size=7), strip.text = element_text(size = 6)) +
-            labs(title = "Alpha diversity", subtitle = "alpha diversity ~ genotype * arsen") +
+            labs(title = "Alpha diversity", subtitle = "alpha diversity ~ genotype * arsenic") +
             geom_text(data = alpha_table, aes(x=x, y=y, label=letters),size=4, col="dimgrey")
 
 

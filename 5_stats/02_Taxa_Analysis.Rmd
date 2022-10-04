@@ -1,5 +1,5 @@
 ---
-title: "Arsen - 02: Taxanomy Analysis"
+title: "Arsenic - 02: Taxanomy Analysis"
 author: "Jan Waelchli"
 geometry: margin=2cm
 output:
@@ -176,11 +176,13 @@ We get an overview over the abundance of bacterial taxonomy by showing the most 
 
 #sort
 bPHYSEQ_phyla_melt <- bPHYSEQ_phyla_melt[order(bPHYSEQ_phyla_melt$genotype),]
-bPHYSEQ_phyla_melt <- bPHYSEQ_phyla_melt[order(bPHYSEQ_phyla_melt$arsen),]
+bPHYSEQ_phyla_melt <- bPHYSEQ_phyla_melt[order(bPHYSEQ_phyla_melt$arsenic),]
 
 #factor
 #unique has another order than levels()
 bPHYSEQ_phyla_melt$labels_2 <- factor(bPHYSEQ_phyla_melt$labels_2, levels = unique(bPHYSEQ_phyla_melt$labels_2)[1:14])#custom reordering
+bPHYSEQ_phyla_melt$sample_ID <- factor(bPHYSEQ_phyla_melt$sample_ID, levels = unique(bPHYSEQ_phyla_melt$sample_ID))#factor in the order as the file is ordered now
+
 
 #plot
 fig3.1 <- ggplot(bPHYSEQ_phyla_melt, aes_string(x="sample_ID", y="Abundance", fill="labels_2")) + 
@@ -190,13 +192,13 @@ fig3.1 <- ggplot(bPHYSEQ_phyla_melt, aes_string(x="sample_ID", y="Abundance", fi
   scale_colour_manual(values=bcol_class)+
   scale_fill_manual(values=bcol_class) +
   guides(fill=guide_legend(title="Phylum"))+
-  facet_grid( ~ arsen, scale="free_x", space="free_x") +
+  facet_grid( ~ arsenic, scale="free_x", space="free_x") +
   geom_text(data=bPHYSEQ_phyla_melt, aes(label=genotype, y=-10), angle=90, check_overlap=T, size=3, hjust = 0.25) + 
   theme_bw()+
   ggtitle("Bacteria: Taxonomy")+
   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
 
-#png("figs_for_paper/fig3.1.png",5000,4500, res=600)
+#png("figs_for_paper/fig3.1.png",4200,3000, res=600)
 print(fig3.1)
 #dev.off()
 
@@ -210,12 +212,13 @@ print(fig3.1)
 
 #sort
 fPHYSEQ_phyla_melt <- fPHYSEQ_phyla_melt[order(fPHYSEQ_phyla_melt$genotype),]
-fPHYSEQ_phyla_melt <- fPHYSEQ_phyla_melt[order(fPHYSEQ_phyla_melt$arsen),]
+fPHYSEQ_phyla_melt <- fPHYSEQ_phyla_melt[order(fPHYSEQ_phyla_melt$arsenic),]
 
 fcol_class[names(fcol_class)=="Low abundant phyla"] <- "lightgrey"
 
 #factor
 fPHYSEQ_phyla_melt$labels_2 <- factor(fPHYSEQ_phyla_melt$labels_2, levels = unique(fPHYSEQ_phyla_melt$labels_2)[c(1:9,11:12,10)])#custom reordering
+fPHYSEQ_phyla_melt$sample_ID <- factor(fPHYSEQ_phyla_melt$sample_ID, levels = unique(fPHYSEQ_phyla_melt$sample_ID))#factor in the order as the file is ordered now
 
 #plot
 fig3.2 <- ggplot(fPHYSEQ_phyla_melt, aes_string(x="sample_ID", y="Abundance", fill="labels_2")) + 
@@ -225,13 +228,13 @@ fig3.2 <- ggplot(fPHYSEQ_phyla_melt, aes_string(x="sample_ID", y="Abundance", fi
   scale_colour_manual(values=fcol_class)+
   scale_fill_manual(values=fcol_class) +
   guides(fill=guide_legend(title="Phylum"))+
-  facet_grid( ~ arsen, scale="free_x", space="free_x") +
+  facet_grid( ~ arsenic, scale="free_x", space="free_x") +
   geom_text(data=fPHYSEQ_phyla_melt, aes(label=genotype, y=-10), angle=90, check_overlap=T, size=3, hjust = 0.25) + 
   theme_bw()+
   ggtitle("Fungi: Taxonomy")+
   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
 
-#png("figs_for_paper/fig3.2.png",5000,4500, res=600)
+#png("figs_for_paper/fig3.2.png",4200,3000, res=600)
 print(fig3.2)
 #dev.off()
 
@@ -241,7 +244,7 @@ print(fig3.2)
 
 ## Effect of all factors on phyla abundances
 
-We test if there are any difference between the phyla abundances between genotypes, arsen-treatments or their interaction by performing a PERMNOVA (permutations = 999).
+We test if there are any difference between the phyla abundances between genotypes, arsenic-treatments or their interaction by performing a PERMNOVA (permutations = 999).
 
 ### Bacteria
 
@@ -262,7 +265,7 @@ bphyla_sum <- bphyla_sum[,colnames(bphyla_sum) != "Group.1"]
 #PERMANOVA
 
 bdist <- vegan::vegdist(t(bphyla_sum), method="bray")
-bdist_paov <- vegan::adonis2(bdist ~ arsen*genotype, data=bDESIGN)
+bdist_paov <- vegan::adonis2(bdist ~ arsenic*genotype, data=bDESIGN)
 pander(bdist_paov, caption="Bacteria: PERMANOVA")
 
 ```
@@ -286,7 +289,7 @@ fphyla_sum <- fphyla_sum[,colnames(fphyla_sum) != "Group.1"]
 #PERMANOVA
 
 fdist <- vegan::vegdist(t(fphyla_sum), method="bray")
-fdist_paov <- vegan::adonis2(fdist ~ arsen*genotype, data=fDESIGN)
+fdist_paov <- vegan::adonis2(fdist ~ arsenic*genotype, data=fDESIGN)
 pander(fdist_paov, caption="Fungi: PERMANOVA")
 
 #export for paper

@@ -1,5 +1,5 @@
 ---
-title: "Arsen - 01: Import & Normalization"
+title: "Arsenic - 01: Import & Normalization"
 author: "Jan Waelchli"
 geometry: margin=2cm
 output:
@@ -12,7 +12,7 @@ output:
 
 # Experimental Setup
 
-WT maize plants and bx1 mutants with a W22 background were grown. Half of them were treated with 0 ppm arsen (CTRL) and the other half with 100 ppm arsen. We analyse the shift of the bacterial and fungal communities in the plant rhizosphere.
+WT maize plants and bx1 mutants with a W22 background were grown. Half of them were treated with 0 ppm arsenic (CTRL) and the other half with 100 ppm arsenic. We analyse the shift of the bacterial and fungal communities in the plant rhizosphere.
 
 ```{r setup, include=FALSE, echo=F, message=F, warning=F}
 
@@ -28,12 +28,12 @@ set.seed(100)
 
 #set paths
 paths <- list(DESIGN = c("design_stats.xlsx"),
-              bASV_table = c("../4_output/bacteria_ASV/bacteria_DAT100.tab"),
-              btaxa = c("../4_output/bacteria_ASV/bacteria_TAXA100.tab"),
-              btrack = c("../4_output/bacteria_ASV/quality_check/bacteria_track.xlsx"),
-              fASV_table = c("../4_output/fungi_ASV/fungi_DAT100.tab"),
-              ftaxa = c("../4_output/fungi_ASV/fungi_TAXA100.tab"),
-              ftrack = c("../4_output/fungi_ASV/quality_check/fungi_track.xlsx"),
+              bASV_table = c("../../4_output/bacteria_ASV/ASV100/bacteria_DAT100.tab"),
+              btaxa = c("../../4_output/bacteria_ASV/ASV100/bacteria_TAXA100.tab"),
+              btrack = c("../../4_output/bacteria_ASV/quality_check/bacteria_track.xlsx"),
+              fASV_table = c("../../4_output/fungi_ASV/ASV100/fungi_DAT100.tab"),
+              ftaxa = c("../../4_output/fungi_ASV/ASV100/fungi_TAXA100.tab"),
+              ftrack = c("../../4_output/fungi_ASV/quality_check/fungi_track.xlsx"),
               functions="functions/"
           )
 
@@ -59,22 +59,22 @@ DESIGN <- read_excel(paths$DESIGN)
 DESIGN_controls <- DESIGN[grepl("control", DESIGN$sample_type),]
 DESIGN <- DESIGN[!(DESIGN$sample_ID %in% DESIGN_controls$sample_ID),]
 
-#arsen
-DESIGN$arsen[DESIGN$arsen=="0ppm"] <- "CTRL"
-DESIGN$arsen[DESIGN$arsen=="100ppm"] <- "arsen"
+#arsenic
+DESIGN$arsenic[DESIGN$arsenic=="0ppm"] <- "CTRL"
+DESIGN$arsenic[DESIGN$arsenic=="100ppm"] <- "arsenic"
 
 #factors
 DESIGN$genotype <- factor(DESIGN$genotype, levels=c("WT", "bx1"))
-DESIGN$arsen <- factor(DESIGN$arsen, levels=c("CTRL", "arsen"))
+DESIGN$arsenic <- factor(DESIGN$arsenic, levels=c("CTRL", "arsenic"))
 
 #colors
 DESIGN$cols_genotype <- NA
 DESIGN$cols_genotype[DESIGN$genotype=="WT"] <- "gold2"
 DESIGN$cols_genotype[DESIGN$genotype=="bx1"] <- "palegreen2"
 
-DESIGN$cols_arsen <- NA
-DESIGN$cols_arsen[DESIGN$arsen=="CTRL"] <- "lemonchiffon3"
-DESIGN$cols_arsen[DESIGN$arsen=="arsen"] <- "lemonchiffon4"
+DESIGN$cols_arsenic <- NA
+DESIGN$cols_arsenic[DESIGN$arsenic=="CTRL"] <- "lemonchiffon3"
+DESIGN$cols_arsenic[DESIGN$arsenic=="arsenic"] <- "lemonchiffon4"
 
 ## collapsed color vectors
 temp <- data.frame(DESIGN$genotype, DESIGN$cols_genotype)
@@ -82,10 +82,10 @@ temp <- plyr::ddply(temp, .variables="DESIGN.cols_genotype", .fun=unique)
 level_cols_genotype <- as.character(temp[,2])
 names(level_cols_genotype) <- temp[,1]
 
-temp <- data.frame(DESIGN$arsen, DESIGN$cols_arsen)
-temp <- plyr::ddply(temp, .variables="DESIGN.cols_arsen", .fun=unique)
-level_cols_arsen <- as.character(temp[,2])
-names(level_cols_arsen) <- temp[,1]
+temp <- data.frame(DESIGN$arsenic, DESIGN$cols_arsenic)
+temp <- plyr::ddply(temp, .variables="DESIGN.cols_arsenic", .fun=unique)
+level_cols_arsenic <- as.character(temp[,2])
+names(level_cols_arsenic) <- temp[,1]
 
 ```
 
@@ -307,16 +307,16 @@ track <- track[order,]
 #add seqs after removing eukaryota seqs
 track$noneukar <- colSums(bDAT)
 
-#add genotype, arsen
+#add genotype, arsenic
 track$genotype <- as.factor(DESIGN$genotype)
-track$arsen <- as.factor(DESIGN$arsen)
-track_long <- tidyr::pivot_longer(track, cols= !(c("FLD", "genotype", "arsen")), names_to = "steps", values_to = "reads")
+track$arsenic <- as.factor(DESIGN$arsenic)
+track_long <- tidyr::pivot_longer(track, cols= !(c("FLD", "genotype", "arsenic")), names_to = "steps", values_to = "reads")
 
 track_long$genotype <- as.factor(track_long$genotype)
 track_long$steps <- factor(track_long$steps, levels=c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim", "noneukar"))
 levels(track_long$steps)[1] <- "demultiplexed"
 
-track_bac <- ggplot(track_long, aes(steps, reads, col=genotype, lty=arsen, group=paste(genotype, arsen, sep="_")))+
+track_bac <- ggplot(track_long, aes(steps, reads, col=genotype, lty=arsenic, group=paste(genotype, arsenic, sep="_")))+
               geom_jitter(alpha=0.1, width = 0.2)+
               geom_smooth(aes(), se=F, method="loess", formula="y~x")+
               theme_bw()+
@@ -341,14 +341,14 @@ track$noneukar <- colSums(fDAT)
 
 #add genotype groups
 track$genotype <- as.factor(DESIGN$genotype)
-track$arsen <- as.factor(DESIGN$arsen)
-track_long <- tidyr::pivot_longer(track, cols= !(c("FLD", "genotype", "arsen")), names_to = "steps", values_to = "reads")
+track$arsenic <- as.factor(DESIGN$arsenic)
+track_long <- tidyr::pivot_longer(track, cols= !(c("FLD", "genotype", "arsenic")), names_to = "steps", values_to = "reads")
 
 track_long$genotype <- as.factor(track_long$genotype)
 track_long$steps <- factor(track_long$steps, levels=c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim", "noneukar"))
 levels(track_long$steps)[1] <- "demultiplexed"
 
-track_fun <- ggplot(track_long, aes(steps, reads, col=genotype, lty=arsen, group=paste(genotype, arsen, sep="_")))+
+track_fun <- ggplot(track_long, aes(steps, reads, col=genotype, lty=arsenic, group=paste(genotype, arsenic, sep="_")))+
                 geom_jitter(alpha=0.1, width = 0.2)+
                 geom_smooth(aes(), se=F, method="loess", formula="y~x")+
                 theme_bw()+
@@ -455,7 +455,7 @@ pander(df)
 ```{r Figure 2 bacteria, echo=F, warning=F, message=F}
 
 ## boxplot
-df <- data.frame(col_sum=colSums(bDAT),colnames=colnames(bDAT), arsen=bDESIGN$arsen, 
+df <- data.frame(col_sum=colSums(bDAT),colnames=colnames(bDAT), arsenic=bDESIGN$arsenic, 
                  genotype=bDESIGN$genotype)
 
 ylim2=boxplot.stats(df$col_sum)$stats[c(1, 5)]
@@ -468,20 +468,20 @@ seq_nr <- ggplot(data=df, aes(x=genotype, y=col_sum, fill=genotype)) +
               ylab("seq") +
               scale_fill_manual(values=level_cols_genotype) +
               coord_cartesian(ylim=ylim2*1.05) +
-              facet_grid(.~ arsen, scales='free_x', space="free")+
+              facet_grid(.~ arsenic, scales='free_x', space="free")+
               ggtitle("Bacteria: Sequencing depth")
 
 ## barplot
 df <- df[order(df$col_sum, decreasing = T),]
-df <- df[order(df$arsen),]
-df$x <- c(1:sum(df$arsen == "CTRL"), 1:sum(df$arsen == "arsen"))
+df <- df[order(df$arsenic),]
+df$x <- c(1:sum(df$arsenic == "CTRL"), 1:sum(df$arsenic == "arsenic"))
 
 samples <-  ggplot(df, aes(x=x, y=col_sum, fill=genotype, color=genotype))+
                 geom_bar(aes(width=1), size=0.1, stat = "identity", col="black", lty=0.5)+
                 scale_fill_manual(values=level_cols_genotype) +
                 xlab("samples")+
                 ylab("seq / samples")+
-                facet_grid(.~ arsen, scales='free_x', space="free")+
+                facet_grid(.~ arsenic, scales='free_x', space="free")+
                 #geom_text(aes(label=colnames), angle=90, hjust=3, size=2)+
                 theme_bw() +
                 theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(),
@@ -499,7 +499,7 @@ bac_plot <- cowplot::plot_grid(seq_nr + theme(legend.position="none"),
 ```{r Figure 2 fungi, echo=F, warning=F, message=F}
 
 ## boxplot
-df <- data.frame(col_sum=colSums(fDAT),colnames=colnames(fDAT), arsen=fDESIGN$arsen, 
+df <- data.frame(col_sum=colSums(fDAT),colnames=colnames(fDAT), arsenic=fDESIGN$arsenic, 
                  genotype=fDESIGN$genotype)
 
 ylim2=boxplot.stats(df$col_sum)$stats[c(1, 5)]
@@ -512,20 +512,20 @@ seq_nr <- ggplot(data=df, aes(x=genotype, y=col_sum, fill=genotype)) +
               ylab("seq") +
               scale_fill_manual(values=level_cols_genotype) +
               coord_cartesian(ylim=ylim2*1.05) +
-              facet_grid(.~ arsen, scales='free_x', space="free")+
+              facet_grid(.~ arsenic, scales='free_x', space="free")+
               ggtitle("Fungi: Sequencing depth")
 
 ## barplot
 df <- df[order(df$col_sum, decreasing = T),]
-df <- df[order(df$arsen),]
-df$x <- c(1:sum(df$arsen == "CTRL"), 1:sum(df$arsen == "arsen"))
+df <- df[order(df$arsenic),]
+df$x <- c(1:sum(df$arsenic == "CTRL"), 1:sum(df$arsenic == "arsenic"))
 
 samples <-  ggplot(df, aes(x=x, y=col_sum, fill=genotype, color=genotype))+
                 geom_bar(aes(width=1), size=0.1, stat = "identity", col="black", lty=0.5)+
                 scale_fill_manual(values=level_cols_genotype) +
                 xlab("samples")+
                 ylab("seq / samples")+
-                facet_grid(.~ arsen, scales='free_x', space="free")+
+                facet_grid(.~ arsenic, scales='free_x', space="free")+
                 theme_bw() +
                 #geom_text(aes(label=colnames), angle=90, hjust=3, size=2)+
                 theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(),
@@ -567,19 +567,19 @@ fig2.1
 
 ### Asymptotic Kruskal-Wallis Test & Normalization
 
-To decide on how to normalize the data we follow the recommendation of Weiss et al. (2017, Microbiome Journal) and inspect whether there are differences in sequencing depths between the different arsen-treatments and genotypes by using the non-parametric Kruskal-Wallis Test.
+To decide on how to normalize the data we follow the recommendation of Weiss et al. (2017, Microbiome Journal) and inspect whether there are differences in sequencing depths between the different arsenic-treatments and genotypes by using the non-parametric Kruskal-Wallis Test.
 
 ```{r seq numbers per group bacteria, echo=F, message=F, warning=F}
 
 #BACTERIA
-group <- as.factor(paste(bDESIGN$genotype, bDESIGN$arsen, sep="_"))
+group <- as.factor(paste(bDESIGN$genotype, bDESIGN$arsenic, sep="_"))
 sample_depth <- colSums(bDAT)
 DAT_krusk <- kruskal.test(sample_depth ~ group)
 print("Bacteria")
 DAT_krusk
 
 #FUNGI
-group <- as.factor(paste(fDESIGN$genotype, fDESIGN$arsen, sep="_"))
+group <- as.factor(paste(fDESIGN$genotype, fDESIGN$arsenic, sep="_"))
 sample_depth <- colSums(fDAT)
 DAT_krusk <- kruskal.test(sample_depth ~ group)
 print("Fungi")
@@ -606,11 +606,11 @@ We use the method CLOUD developed by Montassier et al. 2018, which is a non-para
 ```{r outlier detection, warning=F, echo=F}
 
 #function to detect outliers
-detect_outliers <- function(DESIGN, DAT_norm, Arsen, species="bacteria"){
+detect_outliers <- function(DESIGN, DAT_norm, Arsenic, species="bacteria"){
 
   #subset
-  if(species=="bacteria"){samples_sub <- DESIGN$bac_FLD[DESIGN$arsen == Arsen]}
-  if(species=="fungi"){samples_sub <- DESIGN$fun_FLD[DESIGN$arsen == Arsen]}
+  if(species=="bacteria"){samples_sub <- DESIGN$bac_FLD[DESIGN$arsenic == Arsenic]}
+  if(species=="fungi"){samples_sub <- DESIGN$fun_FLD[DESIGN$arsenic == Arsenic]}
   DAT_sub <- DAT_norm[,colnames(DAT_norm) %in% samples_sub]
   bdist <- vegan::vegdist(t(DAT_sub), method="bray")
   
@@ -624,16 +624,16 @@ detect_outliers <- function(DESIGN, DAT_norm, Arsen, species="bacteria"){
 }
 
 #get outliers
-bac_outliers_CTRL <- detect_outliers(DESIGN=bDESIGN, DAT_norm=bDAT_norm, Arsen="CTRL", species="bacteria")
-fun_outliers_CTRL <- detect_outliers(DESIGN=fDESIGN, DAT_norm=fDAT_norm, Arsen="CTRL", species="fungi")
-bac_outliers_arsen <- detect_outliers(DESIGN=bDESIGN, DAT_norm=bDAT_norm, Arsen="arsen", species="bacteria")
-fun_outliers_arsen <- detect_outliers(DESIGN=fDESIGN, DAT_norm=fDAT_norm, Arsen="arsen", species="fungi")
+bac_outliers_CTRL <- detect_outliers(DESIGN=bDESIGN, DAT_norm=bDAT_norm, Arsenic="CTRL", species="bacteria")
+fun_outliers_CTRL <- detect_outliers(DESIGN=fDESIGN, DAT_norm=fDAT_norm, Arsenic="CTRL", species="fungi")
+bac_outliers_arsenic <- detect_outliers(DESIGN=bDESIGN, DAT_norm=bDAT_norm, Arsenic="arsenic", species="bacteria")
+fun_outliers_arsenic <- detect_outliers(DESIGN=fDESIGN, DAT_norm=fDAT_norm, Arsenic="arsenic", species="fungi")
 
 
 #output
 outliers <- data.frame(Species=c("Bacteria","Fungi"),
-                       "Arsen:CTRL"=c(length(bac_outliers_CTRL), length(fun_outliers_CTRL)),
-                       "Arsen:arsen"=c(length(bac_outliers_arsen), length(fun_outliers_arsen)))
+                       "Arsenic:CTRL"=c(length(bac_outliers_CTRL), length(fun_outliers_CTRL)),
+                       "Arsenic:arsenic"=c(length(bac_outliers_arsenic), length(fun_outliers_arsenic)))
 
 pander(outliers, caption = "Number of outliers")
 
@@ -642,7 +642,7 @@ pander(outliers, caption = "Number of outliers")
 ```{r outlier removal, warning=F, echo=F}
 
 #bacteria
-samples_to_remove_bac <- c(bac_outliers_CTRL, bac_outliers_arsen)
+samples_to_remove_bac <- c(bac_outliers_CTRL, bac_outliers_arsenic)
 
 bDESIGN <- bDESIGN[!(bDESIGN$bac_FLD %in% samples_to_remove_bac),]
 bDAT <- bDAT[,!(colnames(bDAT) %in% samples_to_remove_bac)]
@@ -654,7 +654,7 @@ bDAT_norm <- bDAT_norm[!(rownames(bDAT_norm) %in% ASVs_to_remove),]
 bTAX <- bTAX[!(rownames(bTAX) %in% ASVs_to_remove),]
 
 #fungi
-samples_to_remove_fun <- c(fun_outliers_CTRL, fun_outliers_arsen)
+samples_to_remove_fun <- c(fun_outliers_CTRL, fun_outliers_arsenic)
 
 fDESIGN <- fDESIGN[!(fDESIGN$fun_FLD %in% samples_to_remove_fun),]
 fDAT <- fDAT[,!(colnames(fDAT) %in% samples_to_remove_fun)]
@@ -678,8 +678,8 @@ We end up with the following number of samples per treatment for the analysis.
 ```{r sample size rare, warning=F, echo=F}
 
 #final number of samples
-table_bac <- table(bDESIGN$genotype, bDESIGN$arsen)
-table_fun <- table(fDESIGN$genotype, fDESIGN$arsen)
+table_bac <- table(bDESIGN$genotype, bDESIGN$arsenic)
+table_fun <- table(fDESIGN$genotype, fDESIGN$arsenic)
 
 #out
 pander(table_bac, caption = "Bacteria: Sample profile")
@@ -724,17 +724,17 @@ for (i in 1:nrow(brarefaction_long)) {
   brarefaction_long$genotype[i] <- as.character(DESIGN$genotype[DESIGN$bac_FLD == brarefaction_long$species[i]])
 }
 
-#add arsen
-brarefaction_long$arsen <- NA
+#add arsenic
+brarefaction_long$arsenic <- NA
 for (i in 1:nrow(brarefaction_long)) {
-  brarefaction_long$arsen[i] <- as.character(DESIGN$arsen[DESIGN$bac_FLD == brarefaction_long$species[i]])
+  brarefaction_long$arsenic[i] <- as.character(DESIGN$arsenic[DESIGN$bac_FLD == brarefaction_long$species[i]])
 }
 
 
 #plot
 bac_rareplot <- ggplot(brarefaction_long, aes(x = subsample, y = value, group = species)) +
                   theme_bw() +
-                  geom_line(aes(color=genotype, lty=arsen))+
+                  geom_line(aes(color=genotype, lty=arsenic))+
                   scale_color_manual(values = level_cols_genotype)+
                   xlab("Sequencing Depth")+
                   ylab("Number of ASVs")+
@@ -766,16 +766,16 @@ for (i in 1:nrow(frarefaction_long)) {
   frarefaction_long$genotype[i] <- as.character(DESIGN$genotype[DESIGN$fun_FLD == frarefaction_long$species[i]])
 }
 
-#add arsen
-frarefaction_long$arsen <- NA
+#add arsenic
+frarefaction_long$arsenic <- NA
 for (i in 1:nrow(frarefaction_long)) {
-  frarefaction_long$arsen[i] <- as.character(DESIGN$arsen[DESIGN$fun_FLD == frarefaction_long$species[i]])
+  frarefaction_long$arsenic[i] <- as.character(DESIGN$arsenic[DESIGN$fun_FLD == frarefaction_long$species[i]])
 }
 
 #plot
 fun_rareplot <- ggplot(frarefaction_long, aes(x = subsample, y = value, group = species)) +
                   theme_bw() +
-                  geom_line(aes(color=genotype, lty=arsen))+
+                  geom_line(aes(color=genotype, lty=arsenic))+
                   scale_color_manual(values = level_cols_genotype)+
                   xlab("Sequencing Depth")+
                   ylab("Number of ASVs")+
@@ -792,7 +792,7 @@ legend <- cowplot::get_legend(bac_rareplot + theme(legend.position="bottom") + l
 fig3 <- cowplot::plot_grid(plot, legend, nrow=2, rel_heights=c(1, .1))
 
 #print
-#png("figs_for_paper/fig3.png",6400, 4000, res = 600)
+#png("figs_for_paper/fig3.png",4000, 2800, res = 600)
 fig3
 #dev.off()
  
@@ -827,7 +827,7 @@ saveRDS(fTAX, "fTAX.RDS")
 saveRDS(fDAT_norm, "fDAT_norm.RDS")
 
 saveRDS(level_cols_genotype, "level_cols_genotype.RDS")
-saveRDS(level_cols_arsen, "level_cols_arsen.RDS")
+saveRDS(level_cols_arsenic, "level_cols_arsenic.RDS")
 saveRDS(bTAX_level_cols_phyla, "bTAX_level_cols_phyla.RDS")
 saveRDS(fTAX_level_cols_phyla, "fTAX_level_cols_phyla.RDS")
 
