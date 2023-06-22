@@ -23,5 +23,5 @@ libraries <- function(){
   if (!require(ANCOMBC)){BiocManager::install("ANCOMBC")}; library(ANCOMBC)
   if (!require(Maaslin2)){BiocManager::install("Maaslin2")}; library(Maaslin2)
   if (!require(metagenomeSeq)){BiocManager::install("metagenomeSeq")}; library(metagenomeSeq)
-  if (!require(sjstats)){install.packages("sjstats")}; library(sjstats)
+  if (!require(parameters)){install.packages("parameters")}; library(parameters)
   }

@@ -40,10 +40,18 @@ ancom <- function(feature_table, meta_data, group, DAT_sample_names){
   # store the results in res 
   res <- out$res
   res_df <- as.data.frame(res)
+  res_df <- column_to_rownames(res_df, colnames(res_df)[1])
+  res_df <- res_df[,grepl(group, colnames(res_df),fixed=T)]
   colnames(res_df) <- names(res)
   subset <- rownames_to_column(res_df, "ASV") %>% filter(diff_abn)
   sens_ASVS_ANCOMBC <- subset$ASV
   return(list(subset, sens_ASVS_ANCOMBC))
+  # res <- out$res
+  # res_df <- as.data.frame(res)
+  # colnames(res_df) <- names(res)
+  # subset <- rownames_to_column(res_df, "ASV") %>% filter(diff_abn)
+  # sens_ASVS_ANCOMBC <- subset$ASV
+  # return(list(subset, sens_ASVS_ANCOMBC))
 }
 
 #run masslin2 DAA function
@@ -54,7 +62,7 @@ maaslin2 <- function(feature_table, meta_data, group, reference, DAT_sample_name
   fixed_effects <- group
   asv <- t(feature_table) # maaslin expects features as columns and samples as rows 
   
-  sink("/dev/null") #suppress function output
+  sink(nullfile()) #suppress function output
   fit_data <- Maaslin2(asv, meta_sub, output = "DAA example", transform = "AST",
                        fixed_effects = fixed_effects, reference = reference,  
                        normalization = "TSS", standardize = FALSE,
