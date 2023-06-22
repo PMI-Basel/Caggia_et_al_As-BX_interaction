@@ -28,12 +28,12 @@ set.seed(100)
 
 #set paths
 paths <- list(DESIGN = c("design_stats.xlsx"),
-              bASV_table = c("../../4_output/bacteria_ASV/ASV100/bacteria_DAT100.tab"),
-              btaxa = c("../../4_output/bacteria_ASV/ASV100/bacteria_TAXA100.tab"),
-              btrack = c("../../4_output/bacteria_ASV/quality_check/bacteria_track.xlsx"),
-              fASV_table = c("../../4_output/fungi_ASV/ASV100/fungi_DAT100.tab"),
-              ftaxa = c("../../4_output/fungi_ASV/ASV100/fungi_TAXA100.tab"),
-              ftrack = c("../../4_output/fungi_ASV/quality_check/fungi_track.xlsx"),
+              bASV_table = c("../4_output/bacteria_ASV/bacteria_DAT100.tab"),
+              btaxa = c("../4_output/bacteria_ASV/bacteria_TAXA100.tab"),
+              btrack = c("../4_output/bacteria_ASV/quality_check/bacteria_track.xlsx"),
+              fASV_table = c("../4_output/fungi_ASV/fungi_DAT100.tab"),
+              ftaxa = c("../4_output/fungi_ASV/fungi_TAXA100.tab"),
+              ftrack = c("../4_output/fungi_ASV/quality_check/fungi_track.xlsx"),
               functions="functions/"
           )
 
