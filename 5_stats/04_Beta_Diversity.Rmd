@@ -94,7 +94,7 @@ pander(fdist_paov, caption="Fungi: PERMANOVA")
 
 \pagebreak
 
-### Figure 6.1 \| PCoA - genotype:arsenic effect on beta diversity
+### Figure 16.1 \| PCoA - genotype:arsenic effect on beta diversity
 
 \vspace{5mm}
 
@@ -206,7 +206,7 @@ fig_6.1
 
 \vspace{5mm}
 
-### Figure 6.2 \| CAP - genotype:arsenic effect on beta diversity
+### Figure 16.2 \| CAP - genotype:arsenic effect on beta diversity
 
 \vspace{5mm}
 

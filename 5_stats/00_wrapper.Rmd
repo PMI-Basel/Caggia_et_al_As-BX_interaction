@@ -9,12 +9,15 @@ output:
     toc_depth: 2
 ---
 
+\setcounter{table}{10}
+
 ```{r setup, include=FALSE}
 
 #This file is used to knitr all chapter togehter as one pdf!
 
 knitr::opts_chunk$set(echo = TRUE, fig.align="center", fig.path='Figs/')
 options(knitr.duplicate.label = "allow", tinytex.verbose = TRUE)
+
 ```
 
 ```{r, child=c('01_Import_Normalization.Rmd', '02_Taxa_Analysis.Rmd', '03_Alpha_Diversity.Rmd', '04_Beta_Diversity.Rmd', '05_DAA.Rmd')}

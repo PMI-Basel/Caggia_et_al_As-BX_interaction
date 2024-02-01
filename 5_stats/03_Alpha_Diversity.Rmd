@@ -136,7 +136,7 @@ falpha_table <- data.frame(genotype=falpha_means[,1], arsenic=falpha_means[,2], 
 
 ```
 
-### Figure 5 \| Genotype*Arsenic effect on alpha diversity
+### Figure 15 \| Genotype*Arsenic effect on alpha diversity
 
 \vspace{5mm}
 

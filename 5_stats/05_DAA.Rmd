@@ -72,7 +72,7 @@ Is there a core of sensitive microbial taxa? We searched sensitive ASVs – ASVs
 
 We answered the question by using four different tools to measure differential abundances - aldex2, acombc, maaslin2 and metagenomeSeq - and predict ASVs to be different if they were detected by 2 or more tools.
 
-```{r prepro, echo=F, message=F, warning=F}
+```{r prepro, echo=F, message=F, warning=F, error=F}
 
 preprocess <- function(DESIGN, DAT, sample_var){
   
@@ -95,11 +95,12 @@ preprocess <- function(DESIGN, DAT, sample_var){
 
 We check for each ASV if it is sensitive or not. Then, we show how many ASVs has been changed between the genotypes and how much of the relative abundance belongs to those sensitive ASVs.
  
-```{r compute DAA, echo=F, message=F, warning=F}
+```{r compute DAA, echo=F, message=F, warning=F, error=F, results='hide'}
 
 #BACTERIA
 #CTRL
 bDESIGN_CTRL <- bDESIGN[bDESIGN$arsenic=="CTRL",]
+bDESIGN_CTRL$genotype <- as.character(bDESIGN_CTRL$genotype) #needs to be a character for the run_all_DAA function
 bDAT_CTRL <- bDAT[,colnames(bDAT)%in%bDESIGN_CTRL$bac_FLD]
 bDAT_norm_CTRL <- bDAT_norm[,colnames(bDAT_norm)%in%bDESIGN_CTRL$bac_FLD]
 
@@ -112,6 +113,7 @@ bsens_ASVs_CTRL <- bsumm_CTRL$ASV[bsumm_CTRL$score>=2]
 
 #arsenic
 bDESIGN_arsenic <- bDESIGN[bDESIGN$arsenic=="arsenic",]
+bDESIGN_arsenic$genotype <- as.character(bDESIGN_arsenic$genotype) #needs to be a character for the run_all_DAA function
 bDAT_arsenic <- bDAT[,colnames(bDAT)%in%bDESIGN_arsenic$bac_FLD]
 bDAT_norm_arsenic <- bDAT_norm[,colnames(bDAT_norm)%in%bDESIGN_arsenic$bac_FLD]
 
@@ -125,6 +127,7 @@ bsens_ASVs_arsenic <- bsumm_arsenic$ASV[bsumm_arsenic$score>=2]
 #FUNGI
 #CTRL
 fDESIGN_CTRL <- fDESIGN[fDESIGN$arsenic=="CTRL",]
+fDESIGN_CTRL$genotype <- as.character(fDESIGN_CTRL$genotype) #needs to be a character for the run_all_DAA function
 fDAT_CTRL <- fDAT[,colnames(fDAT)%in%fDESIGN_CTRL$fun_FLD]
 fDAT_norm_CTRL <- fDAT_norm[,colnames(fDAT_norm)%in%fDESIGN_CTRL$fun_FLD]
 
@@ -137,6 +140,7 @@ fsens_ASVs_CTRL <- fsumm_CTRL$ASV[fsumm_CTRL$score>=2]
 
 #arsenic
 fDESIGN_arsenic <- fDESIGN[fDESIGN$arsenic=="arsenic",]
+fDESIGN_arsenic$genotype <- as.character(fDESIGN_arsenic$genotype) #needs to be a character for the run_all_DAA function
 fDAT_arsenic <- fDAT[,colnames(fDAT)%in%fDESIGN_arsenic$fun_FLD]
 fDAT_norm_arsenic <- fDAT_norm[,colnames(fDAT_norm)%in%fDESIGN_arsenic$fun_FLD]
 
@@ -150,7 +154,7 @@ fsens_ASVs_arsenic <- fsumm_arsenic$ASV[fsumm_arsenic$score>=2]
 ```
 
 
-```{r bac summarise DAA, echo=F, message=F, warning=F}
+```{r bac summarise DAA, echo=F, message=F, warning=F, error=F}
 
 #CTRL
 
@@ -277,7 +281,7 @@ for(a in unique(bsummary_arsenic$ASV)){
 
 ```
 
-```{r fun summarise DAA, echo=F, message=F, warning=F}
+```{r fun summarise DAA, echo=F, message=F, warning=F, error=F}
 
 #CTRL
 
@@ -404,7 +408,7 @@ for(a in unique(fsummary_arsenic$ASV)){
 
 ```
 
-```{r bac show DAA, echo=F, message=F, warning=F}
+```{r bac show DAA, echo=F, message=F, warning=F, error=F}
 
 #pander how many ASVs are sensitive
 
@@ -447,7 +451,7 @@ colnames(bsensitive_arsenic)[4:5] <- c("abu WT", "abu bx1")
 
 #combine into one df
 bsens <- rbind(bsens_CTRL, bsens_arsenic)
-bsens <- cbind(taxa=c("bacteria","bacteria"), arsenic=c("CTRL","arsenic"), bsens)
+bsens <- cbind(taxa=c("bac","bac"), arsenic=c("CTRL","arsenic"), bsens)
 rownames(bsens) <- NULL #remove rownames
 #add total abu
 abu_WT <- c(gsub("%", "", bsensitive_CTRL$`abu WT`) %>% as.numeric() %>% sum() %>% paste0("%"),
@@ -463,7 +467,7 @@ pander(bsens, caption = "Bacteria: genotype effect")
 
 \vspace{5mm}
 
-```{r fun show DAA, echo=F, message=F, warning=F}
+```{r fun show DAA, echo=F, message=F, warning=F, error=F}
 
 #pander how many ASVs are sensitive
 
