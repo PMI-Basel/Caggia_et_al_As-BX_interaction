@@ -170,7 +170,7 @@ names(fcol_class) <- fPHYSEQ_phyla_melt$labels_2
 
 We get an overview over the abundance of bacterial taxonomy by showing the most abundant phyla for each sample.
 
-### Figure 14.1 | Bacteria: Phylum level taxonomy
+### Figure S14.1 | Bacteria: Phylum level taxonomy
 
 ```{r bac fig, echo=F, warning=F, message=F, fig.height=13, fig.width=15}
 
@@ -206,7 +206,7 @@ print(fig3.1)
 
 \vspace{5mm}
 
-### Figure 14.2 | Fungi: Phylum level taxonomy
+### Figure S14.2 | Fungi: Phylum level taxonomy
 
 ```{r fun fig, echo=F, warning=F, message=F, fig.height=13, fig.width=15}
 

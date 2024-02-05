@@ -7,9 +7,12 @@ output:
   pdf_document:
     toc: yes
     toc_depth: 2
+header-includes: 
+  \usepackage{float} \floatplacement{figure}{H} 
+  \newcommand{\beginsupplement}{\setcounter{table}{10}  \renewcommand{\thetable}{S\arabic{table}}}
 ---
 
-\setcounter{table}{10}
+\beginsupplement
 
 ```{r setup, include=FALSE}
 

@@ -284,7 +284,7 @@ rm(temp)
 
 ## Sequencing Depth
 
-### Figure 11 \| Reads tracking
+### Figure S11 \| Reads tracking
 
 We plot the amount of reads during each pipeline step. This allows us to see where we loses reads and if the samples from the different groups behave similar.
 
@@ -448,7 +448,7 @@ pander(df, caption="Number of sequences")
 ```
 \vspace{5mm}
 
-### Figure 12 \| Sequencing depth
+### Figure S12 \| Sequencing depth
 
 \vspace{5mm}
 
@@ -690,7 +690,7 @@ pander(table_fun, caption = "Fungi: Sample profile")
 
 ```
 
-### Figure 13 \| Rarefaction plot
+### Figure S13 \| Rarefaction plot
 
 We plot a rarefaction plot with the remaining samples to check if the sequence depth is enough to capture the microbial diversity.
 
