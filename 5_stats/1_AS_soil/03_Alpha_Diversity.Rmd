@@ -1,0 +1,677 @@
+---
+title: "Arsenic Soil - 03: Alpha Diversity"
+author: "Jan Waelchli"
+geometry: margin=2cm
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+---
+
+\pagebreak
+
+```{r setup, include=FALSE, echo=F, warning=F, message=F,}
+
+##clear the object from memory
+rm(list=ls())
+
+#knitr settings
+knitr::opts_chunk$set(echo=TRUE, fig.align="center")
+options(tinytex.verbose = TRUE)
+
+#set seed
+set.seed(100)
+
+#paths
+paths <- list(functions="functions/")
+
+## set source to file location
+library(rstudioapi)
+setwd(dirname(getActiveDocumentContext()$path))
+
+## load functions
+source(paste0(paths$functions,"functions.R"))
+functions(path="functions/")
+
+## installs (if necessary) and loads libraries
+libraries()
+library(lme4)
+
+```
+
+```{r import, echo=F, message=F, warning=F}
+
+# Import
+
+# set wd to RDS files
+setwd("interim/01_Import_Normalization")
+
+#cImport RDS files
+bDESIGN <- readRDS("bDESIGN.RDS")
+bDAT <- readRDS("bDAT.RDS")
+bDAT_rare <- readRDS("bDAT_rare.RDS")
+b_rare <- readRDS("b_rare.RDS")
+
+fDESIGN <- readRDS("fDESIGN.RDS")
+fDAT <- readRDS("fDAT.RDS")
+fDAT_rare <- readRDS("fDAT_rare.RDS")
+f_rare <- readRDS("f_rare.RDS")
+
+level_cols_Arsenic <- readRDS("level_cols_Arsenic.RDS")
+level_cols_Timepoint <- readRDS("level_cols_Timepoint.RDS")
+
+```
+   
+
+# Alpha diversity
+
+## Figure 3 | rarefaction
+
+Before analysing the alpha diversity, we conduct the rarefaction plot to make sure that we don't lose diversity due to a too low rarefaction threshold.
+
+\vspace{5mm}
+
+```{r rarefaction, eval=T, echo=F, message=F, warning=F, fig.height=4, fig.width=10} 
+
+
+#rarefy
+pdf("/dev/null") #prevents drawing of standard rarefaction plot (we will create our own with colors)
+brarefaction <- rarecurve(t(bDAT), step=200, 7000)
+frarefaction <- rarecurve(t(fDAT), step=20, 7000)
+invisible(dev.off())
+
+#limit for plotting
+bSmax <- sapply(brarefaction, max)
+fSmax <- sapply(brarefaction, max)
+
+#make the rigth plot bigger because it contains the legend
+layout(matrix(c(1,2), 1, 2, byrow = TRUE), widths=c(2,3))
+
+### BACTERIA ###
+#plot rarefaction
+plot(c(1, 50000), c(1, max(bSmax)), xlab="Sequencing depth", main="Bacteria: Rarefaction",
+     ylab="number of ASVs", type="n", las=1, ylim=c(0,1800))
+for (i in seq_along(brarefaction)) {
+  N <- attr(brarefaction[[i]], "Subsample")
+  lines(N, brarefaction[[i]], col=bDESIGN$cols_Arsenic[i], lwd=0.5)
+}
+#add rarefaction threshold
+abline(v=b_rare,lty = "longdash", lwd=2)
+
+### FUNGI ###
+#plot rarefaction
+par(mar=c(5.1, 4.1, 2.1, 12.1), xpd=F)#add extra space on the rigth side
+
+plot(c(1, 25000), c(1, max(fSmax)), xlab="Sequencing depth", main="Fungi: Rarefaction",
+     ylab="number of ASVs", type="n", las=1, ylim=c(0,350))
+for (i in seq_along(frarefaction)) {
+  N <- attr(frarefaction[[i]], "Subsample")
+  lines(N, frarefaction[[i]], col=fDESIGN$cols_Arsenic[i], lwd=0.5)
+}
+#add rarefaction threshold
+abline(v=f_rare,lty = "longdash", lwd=2)
+
+#add legend to the right plot (inset -x to plot outside the plot)
+par(xpd=T) #make data visible next to the plot
+legend("right", title.adj = 0.2, title = "Arsenic", inset=c(-0.5,0.2),
+       legend=names(level_cols_Arsenic),
+       pch=16, bty = "n", col=level_cols_Arsenic)
+par(xpd = F)
+
+```
+
+**Conclusion:** We chose rarefaction thresholds that do not affect the alpha diversity.
+
+
+\pagebreak
+
+## Shannon diversity
+
+Method: we rarefy the dataset to the sequencing depth of `r b_rare` for bacteria and `r f_rare` for fungi. Then we calculated Shannon diversity in each sample. This was repeated 100 times and the mean value from the 100 iterations was taken for statistical analysis between the different samples.  
+
+```{r a-div shannon, warning=F, echo=F, message=F, eval=T}
+
+repetitions <- 100
+
+### BACTERIA ###
+
+  #rarefy data a 100 time and calculate each time the alpha diversity (shannon)
+  #differs each time because rarefaction is a random process
+  diversity_bDAT_mat <- c()
+  for (i in 1:repetitions){
+    #generate rarefied community
+    temp_mat <- t(rrarefy(t(bDAT), b_rare))
+    #calculate shannon
+    shannon <- vegan::diversity(temp_mat, index="shannon", MARGIN=2)
+    d <- exp(shannon)
+    #combine
+    diversity_bDAT_mat <- cbind(diversity_bDAT_mat, d)
+  }
+
+#calculate means of subsamples
+asv_diversity <- rowMeans(diversity_bDAT_mat)
+#put them all in one dataframe
+alpha_diversity_bDAT_summary <- cbind(asv_diversity, bDESIGN)
+
+
+### FUNGI ###
+
+  #rarefy data a 100 time and calculate each time the alpha diversity (shannon)
+  #differs each time because rarefaction is a random process
+  diversity_fDAT_mat <- c()
+  for (i in 1:repetitions){
+    #generate rarefied community
+    temp_mat <- t(rrarefy(t(fDAT), f_rare))
+    #calculate shannon
+    shannon <- vegan::diversity(temp_mat, index="shannon", MARGIN=2)
+    d <- exp(shannon)
+    #combine
+    diversity_fDAT_mat <- cbind(diversity_fDAT_mat, d)
+  }
+
+#calculate means of subsamples
+asv_diversity <- rowMeans(diversity_fDAT_mat)
+#put them all in one dataframe
+alpha_diversity_fDAT_summary <- cbind(asv_diversity, fDESIGN)
+
+
+```
+
+### Bacteria
+
+```{r a-div models bacteria, warning=F, echo=F, message=F, eval=T}
+
+#group_experiment_timepoint
+#F test for sample groups by group_experiment_timepoint
+#alpha_group_experiment_timepoint_aov <- aov(asv_diversity ~ Experiment * Arsenic * Timepoint * Timepoint, data=alpha_diversity_bDAT_summary) #model
+#pander(summary(alpha_group_experiment_timepoint_aov))
+
+```
+
+We check how the Arsenic shifts the alpha diversity over 5 months.
+
+```{r a-div Arsenic effect bacteria all, warning=F, echo=F, message=F, eval=T}
+
+
+### BACTERIA ###
+
+data <- alpha_diversity_bDAT_summary
+DESIGN <- bDESIGN
+
+#Arsenic
+#F test for sample groups by Arsenic
+alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic * Timepoint, data=data) #model
+balpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov)
+
+pander(balpha_Arsenic_aov_sum, caption = "Bacteria: Arsenic effect")
+
+```
+
+
+
+<!-- We check how the Arsenic shifts the alpha diversity each month. -->
+
+<!-- ```{r a-div Arsenic effect bacteria, warning=F, echo=F, message=F, eval=T} -->
+
+
+<!-- ### BACTERIA ### -->
+
+<!-- # 0 month -->
+
+<!-- data <- droplevels(alpha_diversity_bDAT_summary[alpha_diversity_bDAT_summary$Timepoint=="0M",]) -->
+<!-- DESIGN <- droplevels(bDESIGN[bDESIGN$Timepoint=="0M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Bacteria: Arsenic effect after 0 months (start)") -->
+
+
+
+
+<!-- # 1 month -->
+
+<!-- data <- droplevels(alpha_diversity_bDAT_summary[alpha_diversity_bDAT_summary$Timepoint=="1M",]) -->
+<!-- DESIGN <- droplevels(bDESIGN[bDESIGN$Timepoint=="1M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Bacteria: Arsenic effect after 1 month") -->
+
+
+
+
+<!-- # 2 months -->
+
+<!-- data <- droplevels(alpha_diversity_bDAT_summary[alpha_diversity_bDAT_summary$Timepoint=="2M",]) -->
+<!-- DESIGN <- droplevels(bDESIGN[bDESIGN$Timepoint=="2M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Bacteria: Arsenic effect after 2 months") -->
+
+
+
+
+<!-- # 3 months -->
+
+<!-- data <- droplevels(alpha_diversity_bDAT_summary[alpha_diversity_bDAT_summary$Timepoint=="3M",]) -->
+<!-- DESIGN <- droplevels(bDESIGN[bDESIGN$Timepoint=="3M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Bacteria: Arsenic effect after 3 months") -->
+
+
+
+
+<!-- # 4 months -->
+
+<!-- data <- droplevels(alpha_diversity_bDAT_summary[alpha_diversity_bDAT_summary$Timepoint=="4M",]) -->
+<!-- DESIGN <- droplevels(bDESIGN[bDESIGN$Timepoint=="4M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Bacteria: Arsenic effect after 4 months") -->
+
+
+
+
+<!-- # 5 months -->
+
+<!-- data <- droplevels(alpha_diversity_bDAT_summary[alpha_diversity_bDAT_summary$Timepoint=="5M",]) -->
+<!-- DESIGN <- droplevels(bDESIGN[bDESIGN$Timepoint=="5M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Bacteria: Arsenic effect after 5 months") -->
+
+<!-- ``` -->
+
+**Conclusion:** We find no statistical support that Arsenic alters bacterial alpha diversity.
+
+### Fungi
+
+We check how the Arsenic shifts the alpha diversity over 5 months.
+
+```{r a-div Arsenic effect bacteria all, warning=F, echo=F, message=F, eval=T}
+
+
+### BACTERIA ###
+
+data <- alpha_diversity_fDAT_summary
+DESIGN <- fDESIGN
+
+#Arsenic
+#F test for sample groups by Arsenic
+alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic * Timepoint, data=data) #model
+falpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov)
+
+pander(falpha_Arsenic_aov_sum, caption = "Fungi: Arsenic effect")
+
+#export as table
+# temp1 <- data.frame(balpha_Arsenic_aov_sum[[1]])
+# temp1 <- rownames_to_column(temp1, "factors")
+# colnames(temp1)[2] <- "taxa"
+# temp1$taxa <- "bacteria"
+# temp2 <- data.frame(falpha_Arsenic_aov_sum[[1]])
+# temp2 <- rownames_to_column(temp2, "factors")
+# colnames(temp2)[2] <- "taxa"
+# temp2$taxa <- "fungi"
+# temp3 <- rbind(temp1, temp2)
+# write.csv(temp3, "paper_tables/alpha_div.csv", row.names = F)
+# rm(temp1, temp2, temp3)
+
+```
+
+**Conclusion:** We find no statistical support that Arsenic alters fungal alpha diversity.
+
+<!-- We check how the Arsenic shifts the alpha diversity each month. -->
+
+<!-- ```{r a-div Arsenic effect fungi, warning=F, echo=F, message=F, eval=T} -->
+
+
+<!-- ### FUNGI ### -->
+
+<!-- # 0 month -->
+
+<!-- data <- droplevels(alpha_diversity_fDAT_summary[alpha_diversity_fDAT_summary$Timepoint=="0M",]) -->
+<!-- DESIGN <- droplevels(fDESIGN[fDESIGN$Timepoint=="0M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Fungi: Arsenic effect after 0 months (start)") -->
+
+
+
+
+<!-- # 1 month -->
+
+<!-- data <- droplevels(alpha_diversity_fDAT_summary[alpha_diversity_fDAT_summary$Timepoint=="1M",]) -->
+<!-- DESIGN <- droplevels(fDESIGN[fDESIGN$Timepoint=="1M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Fungi: Arsenic effect after 1 month") -->
+
+
+
+
+<!-- # 2 months -->
+
+<!-- data <- droplevels(alpha_diversity_fDAT_summary[alpha_diversity_fDAT_summary$Timepoint=="2M",]) -->
+<!-- DESIGN <- droplevels(fDESIGN[fDESIGN$Timepoint=="2M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Fungi: Arsenic effect after 2 months") -->
+
+
+
+
+<!-- # 3 months -->
+
+<!-- data <- droplevels(alpha_diversity_fDAT_summary[alpha_diversity_fDAT_summary$Timepoint=="3M",]) -->
+<!-- DESIGN <- droplevels(fDESIGN[fDESIGN$Timepoint=="3M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Fungi: Arsenic effect after 3 months") -->
+
+
+
+
+<!-- # 4 months -->
+
+<!-- data <- droplevels(alpha_diversity_fDAT_summary[alpha_diversity_fDAT_summary$Timepoint=="4M",]) -->
+<!-- DESIGN <- droplevels(fDESIGN[fDESIGN$Timepoint=="4M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Fungi: Arsenic effect after 4 months") -->
+
+
+
+
+<!-- # 5 months -->
+
+<!-- data <- droplevels(alpha_diversity_fDAT_summary[alpha_diversity_fDAT_summary$Timepoint=="5M",]) -->
+<!-- DESIGN <- droplevels(fDESIGN[fDESIGN$Timepoint=="5M",]) -->
+
+<!-- #Arsenic -->
+<!-- #F test for sample groups by Arsenic -->
+<!-- alpha_Arsenic_aov <- aov(asv_diversity ~ Arsenic, data=data) #model -->
+<!-- alpha_Arsenic_aov_sum <- summary(alpha_Arsenic_aov) -->
+<!-- ### pair-wise tests -->
+<!-- alpha_Arsenic_aov_tukey <- emmeans(alpha_Arsenic_aov, "Arsenic")  # library(emmeans) -->
+<!-- alpha_Arsenic_aov_tukey_letters <- cld(alpha_Arsenic_aov_tukey, Letter="abcdefghi", alpha=0.05) -->
+<!-- row.names(alpha_Arsenic_aov_tukey_letters) <- alpha_Arsenic_aov_tukey_letters[,1] -->
+<!-- alpha_Arsenic_aov_tukey_letters <- alpha_Arsenic_aov_tukey_letters[levels(DESIGN$Arsenic),] -->
+<!-- # means -->
+<!-- alpha_Arsenic_means <- aggregate(data$asv_diversity,list(data$Arsenic), mean) -->
+<!-- row.names(alpha_Arsenic_means) <- alpha_Arsenic_means[,1] -->
+<!-- alpha_Arsenic_means <- alpha_Arsenic_means[levels(DESIGN$Arsenic),] -->
+<!-- # table -->
+<!-- alpha_table_Arsenic <- cbind(Shannon=alpha_Arsenic_means[,2], alpha_Arsenic_aov_tukey_letters[,2:7]) -->
+<!-- alpha_table_Arsenic <- alpha_table_Arsenic[,c(1,7)] -->
+
+<!-- pander(alpha_table_Arsenic, caption = "Fungi: Arsenic effect after 5 months") -->
+
+<!-- ``` -->
+
+<!-- **Conclusion:** We find no statistical support that Arsenic alters fungal alpha diversity within 5 months. -->
+
+
+## Figure 4 | shannon diversity
+
+\vspace{5mm}
+
+```{r plot a-div, echo=F, message=F, warning=F, eval=T}
+
+### BACTERIA
+
+levels(alpha_diversity_bDAT_summary$Timepoint) <- c("0 months", "1 month", "2 months", "3 months", "4 months", "5 months")
+
+letters <- data.frame(label="a",
+                      Timepoint=rep(c("0 months", "1 month", "2 months", "3 months", "4 months", "5 months"), 3),
+                      Arsenic=rep(c("0ppm","100ppm", "200ppm"),each=6),
+                      x=c(0.8, 1, 1.2, 1.8, 2, 2.2, 2.8, 3, 3.2, 3.8, 4, 4.2, 4.8, 5, 5.2, 5.8, 6, 6.2), 
+                      y=c(550,550,550, 680,680,680, 600,600,600, 720,720, 720,610, 610,610, 610,610,610))
+
+bac_plot <- ggplot(alpha_diversity_bDAT_summary, aes(y=asv_diversity, x=Timepoint, fill=Arsenic)) +
+              geom_jitter(col="gray40", position=position_dodge(width=0.75), aes(group=Arsenic))+
+              geom_boxplot(position=position_dodge2(width=0.75, preserve="single"),outlier.colour = NA)+
+              theme_bw() +
+              theme(legend.position="none", axis.ticks.x=element_blank()) +
+              ylab("Shanon Diversity")+
+              xlab("")+
+              scale_fill_manual(values=level_cols_Arsenic)+
+              labs(title = "Bacteria: Alpha diversity", subtitle = "Alpha diversity ~ Arsenic")+
+              scale_x_discrete(position = "top")+
+              theme(axis.text.x = element_text(angle = 45, vjust = 0, hjust=0))+
+              geom_text(data = letters, aes(x = x, y = y, label = label, Timepoint=Timepoint),size=3, col="dimgrey")
+
+
+### FUNGI
+
+levels(alpha_diversity_fDAT_summary$Timepoint) <- c("0 months", "1 month", "2 months", "3 months", "4 months", "5 months")
+
+letters <- data.frame(label="a",
+                      Timepoint=rep(c("0 months", "1 month", "2 months", "3 months", "4 months", "5 months"), 3),
+                      Arsenic=rep(c("0ppm","100ppm", "200ppm"),each=6),
+                      x=c(0.8, 1, 1.2, 1.8, 2, 2.2, 2.8, 3, 3.2, 3.8, 4, 4.2, 4.8, 5, 5.2, 5.8, 6, 6.2), 
+                      y=c(90,90,90, 90,90,90, 80,80,80, 77,77, 77, 77,77,77, 77,77,77))
+
+fun_plot <- ggplot(alpha_diversity_fDAT_summary, aes(y=asv_diversity, x=Timepoint, fill=Arsenic)) +
+              geom_jitter(col="gray40", position=position_dodge(width=0.75), aes(group=Arsenic))+
+              geom_boxplot(position=position_dodge2(width=0.75, preserve="single"),outlier.colour = NA)+
+              theme_bw() +
+              theme(legend.position="none", axis.ticks.x=element_blank()) +
+              ylab("Shanon Diversity")+
+              xlab("")+
+              scale_fill_manual(values=level_cols_Arsenic)+
+              labs(title = "Fungi: Alpha diversity", subtitle = "Alpha diversity ~ Arsenic")+
+              scale_x_discrete(position = "top")+
+              theme(axis.text.x = element_text(angle = 45, vjust = 0, hjust=0))+
+              geom_text(data = letters, aes(x = x, y = y, label = label, Timepoint=Timepoint),size=3, col="dimgrey")
+
+#combine the two plots (library cowplot)
+fig4 <- plot_grid(bac_plot + theme(legend.position="none"),
+               fun_plot + theme(legend.position="none") + labs(colour=""),
+               #labels=c("A","B"),
+               align = "hv",
+               nrow=1)
+
+#add legend
+legend <- get_legend(bac_plot + theme(legend.position="bottom") + labs(fill="Arsenic"))
+fig4 <- plot_grid(fig4, legend, nrow=2, rel_heights=c(1, .1))
+
+#print
+fig4
+
+#saveRDS(bac_plot, "paper_figs/RDS/fig4.1.RDS")
+#saveRDS(fun_plot, "paper_figs/RDS/fig4.2.RDS")
+
+```
+
+```{r export RDA files, , echo=F, message=F, warning=F}
+
+# create directory
+dir.create("interim")
+dir.create("interim/03_Alpha_Diversity")
+
+## set output directory
+setwd("interim/03_Alpha_Diversity")
+
+#save objects needed in the following scripts as RDA
+saveRDS(alpha_diversity_bDAT_summary, "alpha_diversity_bDAT_summary.RDS")
+saveRDS(alpha_diversity_fDAT_summary, "alpha_diversity_fDAT_summary.RDS")
+
+```
+
+\pagebreak
+
