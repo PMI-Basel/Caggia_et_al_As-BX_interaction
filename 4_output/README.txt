@@ -1,2 +1,1 @@
-This are the results from the dada2 pipeline. We used it for the stats in 5_stats.
-
+This are the results from the dada2 pipeline we used for the stats.

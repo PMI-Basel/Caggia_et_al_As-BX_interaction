@@ -73,21 +73,56 @@ maaslin2 <- function(feature_table, meta_data, group, reference, DAT_sample_name
   return(list(subset, sens_ASVS_Maaslin2))
 }
 
+# #run metagenomeSeq DAA function
+# metagenomeSeq <- function(feature_table, meta_data, group, DAT_sample_names){
+#   # feature_table <- formatter_ft(feature_table)
+#   # meta_data <- formatter_md(meta_data)
+#   #each sample needs at least non-zero entries (remove others)
+#   feature_table <- feature_table[, apply(feature_table,2,function(x) sum(x > 0)) > 1]
+#   meta_data <- meta_data[meta_data$sample_id %in% colnames(feature_table),]
+#   #meta_sub <- data.frame(meta_data[,colnames(meta_data)==group])
+#   rownames(meta_data) <- meta_data[,colnames(meta_data)==DAT_sample_names]
+#   #colnames(meta_sub) <- group
+#   MR <- newMRexperiment(counts=feature_table, phenoData=AnnotatedDataFrame(meta_data))
+#   MR_norm <-  cumNorm(MR, p = cumNormStatFast(MR)) #CSS normalization
+#   mod <- model.matrix(as.formula(paste("~", group)), data = pData(MR_norm))
+#   fitted_mod <-  fitFeatureModel(MR_norm, mod)
+#   stats <- MRcoefs(fitted_mod, number=length(fitted_mod@pvalues)) #extract stats
+#   subset <- stats[stats$adjPvalues <= 0.05,] #sign ASVs
+#   sens_ASVS_metagenomeSeq <- rownames(subset)
+#   return(list(subset, sens_ASVS_metagenomeSeq))
+# }
+
 #run metagenomeSeq DAA function
 metagenomeSeq <- function(feature_table, meta_data, group, DAT_sample_names){
-  #meta_sub <- data.frame(meta_data[,colnames(meta_data)==group])
-  rownames(meta_data) <- meta_data[,colnames(meta_data)==DAT_sample_names]
-  #colnames(meta_sub) <- group
-  MR <- newMRexperiment(counts=feature_table, phenoData=AnnotatedDataFrame(meta_data))
-  MR_norm <-  cumNorm(MR, p = cumNormStatFast(MR)) #CSS normalization
-  mod <- model.matrix(as.formula(paste("~", group)), data = pData(MR_norm))
-  fitted_mod <-  fitFeatureModel(MR_norm, mod)
-  
-  stats <- MRcoefs(fitted_mod, number=length(fitted_mod@pvalues)) #extract stats
-  subset <- stats[stats$adjPvalues <= 0.05,] #sign ASVs
-  sens_ASVS_metagenomeSeq <- rownames(subset)
-  return(list(subset, sens_ASVS_metagenomeSeq))
+  tryCatch(
+    #try to calculate DAA with metagenomeSeq
+    {
+      #each sample needs at least non-zero entries (remove others)
+      feature_table <- feature_table[, apply(feature_table,2,function(x) sum(x > 0)) > 1]
+      meta_data <- meta_data[meta_data$sample_id %in% colnames(feature_table),]
+      #meta_sub <- data.frame(meta_data[,colnames(meta_data)==group])
+      rownames(meta_data) <- meta_data[,colnames(meta_data)==DAT_sample_names]
+      #colnames(meta_sub) <- group
+      MR <- newMRexperiment(counts=feature_table, phenoData=AnnotatedDataFrame(meta_data))
+      MR_norm <-  cumNorm(MR, p = cumNormStatFast(MR)) #CSS normalization
+      mod <- model.matrix(as.formula(paste("~", group)), data = pData(MR_norm))
+      fitted_mod <-  fitFeatureModel(MR_norm, mod)
+      stats <- MRcoefs(fitted_mod, number=length(fitted_mod@pvalues)) #extract stats
+      subset <- stats[stats$adjPvalues <= 0.05,] #sign ASVs
+      sens_ASVS_metagenomeSeq <- rownames(subset)
+      return(list(subset, sens_ASVS_metagenomeSeq))
+    },
+    #if an error occurs, return NA objects and print the error
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      subset <- NA; sens_ASVS_metagenomeSeq <- NA
+      return(list(subset, sens_ASVS_metagenomeSeq))
+    }
+  ) #end of tryCatch
 }
+
 
 #run all for DAA functions
 run_all_DAA <- run_all_DAA <- function(feature_table, meta_data, group, DAT_sample_names, reference){
@@ -112,8 +147,8 @@ run_all_DAA <- run_all_DAA <- function(feature_table, meta_data, group, DAT_samp
   summ$aldex2 <- summ$ASV %in% aldex2_sensASV
   summ$ancombc <- summ$ASV %in% ancom_sensASV
   summ$maaslin2 <- summ$ASV %in% maaslin2_sensASV
-  summ$metagenomeSeq <- summ$ASV %in% metagenomeSeq_sensASV
-  summ$score <- rowSums(summ[,2:5])
+  summ$metagenomeSeq <- ifelse(is.na(metagenomeSeq_sensASV), NA, summ$ASV %in% metagenomeSeq_sensASV)
+  summ$score <- rowSums(summ[,2:5], na.rm = T)
   return(list(summ, aldex2_sign, ancom_sign, maaslin2_sign, metagenomeSeq_sign))
 }
 

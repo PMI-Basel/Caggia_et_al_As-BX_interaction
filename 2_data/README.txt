@@ -1,1 +1,1 @@
-Data are stored in a demultiplexed form in the European Nucleotide Archive (ENA). The file files.txt contains all files we used.
+Place your data here. The runs must be named runBE12_r1.fastq.gz and runBE12_r2.fastq.gz The file files.txt contains all files we used.
