@@ -1,0 +1,2 @@
+runBE12_r1.fastq.gz
+runBE12_r2.fastq.gz
