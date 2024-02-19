@@ -1,1 +1,0 @@
-Run first cmd/01_demultiplexing.sh to demultiplex the runs and remove all adapters. Then continue with running R/02_ASV_clustering.sh. This will run the 2 R scripts containing a dada2 pipeline for bacteria and fungi. Results will be saved in 4_output.
